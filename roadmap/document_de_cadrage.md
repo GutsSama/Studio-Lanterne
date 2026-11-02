@@ -38,6 +38,4 @@ La plateforme propose une expérience de jeu fluide, réactive et sécurisée, o
 
 ## 6. Schéma d'Architecture (Roadmap visuelle)
 
-<p align="center">
-  <img src="studio_lantern/Studio-Lanterne/roadmap/Gemini_Generated_Image_c9dltuc9dltuc9dl.jpg" alt="Plan d'Architecture" width="800">
-</p>
+<p align="center"><img src="./Gemini_Generated_Image_c9dltuc9dltuc9dl.jpg" alt="Plan d'Architecture" width="800"></p>
