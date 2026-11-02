@@ -31,13 +31,24 @@
 ---
 
 ## 3. Architecture IA & Débat Temps Réel
-*   **Personnalités via Prompts Système (et non par fournisseur) :**  
-    5 profils psychologiques distincts : *L'Agressif, Le Logicien Méfiant, Le Suiveur, Le Bluffeur, Le Médiateur*.
-*   **Stratégie Modèle & Haute Disponibilité :**
-    *   *Modèle principal :* **Llama 3.1 8B via Groq** (latence < 500 ms, très faible coût).
-    *   *Fallback LiteLLM :* Bascule automatique sur **Mistral AI** ou **Gemini** en cas de panne/rate-limit.
+*   **Découplage Personnalité vs Modèle :**  
+    Les personnalités sont pilotées à 100% par des **fiches de profil dans les Prompts Système** (ton, agressivité, crédulité, stratégie de bluff), et non par le modèle sous-jacent.
+*   **Justification Technique du Multi-Fournisseurs (Groq, Mistral, Gemini) :**
+    1.  *Diversité stylistique & Anti-mimétisme (« Groupthink ») :* Évite que les 5 agents partagent les mêmes tics de langage et biais d'alignement d'un modèle unique.
+    2.  *Répartition de charge (Rate Limits Free Tier) :* Évite la saturation des quotas requêtes/min (RPM/TPM) d'un fournisseur unique lors des pics de débat.
+    3.  *Résilience via LiteLLM :* Normalisation des sorties sous schéma Pydantic strict et isolation des timeouts (3,5 s max par appel avec fallback local).
+*   **Répartition des 5 Agents IA :**
+
+| Agent IA | Profil Psychologique | Modèle & Fournisseur | Rôle / Atout |
+| :--- | :--- | :--- | :--- |
+| **Agent 1** | *Le Leader Agressif* | Llama 3.1 8B (**Groq**) | Vitesse (< 400ms), lance le débat |
+| **Agent 2** | *Le Logicien Méfiant* | Mistral Small (**Mistral AI**) | Rigueur d'analyse, concision |
+| **Agent 3** | *Le Bluffeur Imperturbable* | Gemini 1.5 Flash (**Google**) | Analyse synthétique du contexte |
+| **Agent 4** | *Le Suiveur Conciliant* | Llama 3.1 8B (**Groq**) | Réactivité pour rebondir en fin de tour |
+| **Agent 5** | *Le Diplomate / Médiateur* | Mistral Small (**Mistral AI**) | Modération et recherche de consensus |
+
 *   **Débat diurne ordonné :**  
-    Débat séquentiel en **2 tours de table**. Chaque agent reçoit les répliques émises juste avant lui pour rebondir et s'écouter réellement.
+    Débat séquentiel en **2 tours de table**. Chaque agent reçoit les répliques émises juste avant lui pour rebondir et s'écouter réellement. En cas de timeout ou panne d'un modèle, seul l'agent concerné bascule sur un vote par défaut sans bloquer les autres.
 
 ---
 
