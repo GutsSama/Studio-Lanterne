@@ -1,4 +1,4 @@
-"""Endpoints REST FastAPI avec filtrage anti-triche côté serveur."""
+"""Endpoints REST FastAPI avec filtrage anti-triche et simulation de tours IA."""
 
 from typing import Any
 from uuid import UUID, uuid4
@@ -6,9 +6,11 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from app.agents.orchestrator import interroger_agent_ia
 from app.engine.fsm import MoteurPartieFSM
 from app.engine.rules import (
     ErreurRegleJeu,
+    choisir_cible_aleatoire_fallback,
     enregistrer_vote,
     executer_action_alchimiste,
     executer_inspection_inquisiteur,
@@ -23,9 +25,14 @@ router = APIRouter(prefix="/api", tags=["parties"])
 
 class CreerPartieRequete(BaseModel):
     hote_id: UUID = Field(default_factory=uuid4)
-    nom_humain: str = Field(default="Joueur", min_length=2, max_length=30)
+    nom_humain: str = Field(default="Sarah", min_length=2, max_length=30)
     consentement_ai_act: bool = Field(
-        description="Conformité AI Act obligatoire : le joueur confirme savoir qu'il affronte 5 IA."
+        default=True,
+        description="Conformité AI Act obligatoire : le joueur confirme savoir qu'il affronte 5 IA.",
+    )
+    role_humain_force: RolePersonnage | None = Field(
+        default=None,
+        description="Optionnel : forcer le rôle du joueur humain pour tester un rôle précis.",
     )
 
 
@@ -75,6 +82,12 @@ def serialiser_partie_pour_humain(partie: EtatPartie) -> dict[str, Any]:
                 "est_humain": j.est_humain,
                 "nom_affiche": j.nom_affiche,
                 "avatar_url": j.avatar_url,
+                "modele_ia": (
+                    j.personnalite.modele_par_defaut if j.personnalite else None
+                ),
+                "archetype": (
+                    j.personnalite.archetype.value if j.personnalite else None
+                ),
                 "role": j.role.value if montrer_role else None,
                 "est_vivant": j.est_vivant,
                 "numero_siege": j.numero_siege,
@@ -108,6 +121,12 @@ def serialiser_partie_pour_humain(partie: EtatPartie) -> dict[str, Any]:
     }
 
 
+@router.get("/db-status", tags=["systeme"])
+async def verifier_connexion_bdd() -> dict[str, Any]:
+    """Vérifie en direct la connexion à Supabase et la présence des tables."""
+    return depot_parties.verifier_connexion_supabase()
+
+
 @router.get("/personnalites")
 async def lister_personnalites() -> list[dict[str, Any]]:
     return [
@@ -127,6 +146,7 @@ async def creer_partie(req: CreerPartieRequete) -> dict[str, Any]:
         hote_id=req.hote_id,
         nom_humain=req.nom_humain,
         personnalites_ia=depot_parties.lister_personnalites(),
+        role_humain_force=req.role_humain_force,
     )
     depot_parties.sauvegarder(moteur.partie)
     return serialiser_partie_pour_humain(moteur.partie)
@@ -138,6 +158,214 @@ async def obtenir_partie(partie_id: UUID) -> dict[str, Any]:
     if partie is None:
         raise HTTPException(status_code=404, detail="Partie introuvable.")
     return serialiser_partie_pour_humain(partie)
+
+
+@router.post("/parties/{partie_id}/simuler-tour")
+async def simuler_tour_ia(partie_id: UUID) -> dict[str, Any]:
+    """Fait avancer automatiquement la phase actuelle en interrogeant les 5 agents IA via LiteLLM.
+
+    - Si la partie est en `nuit` ou `tour_alchimiste` : exécute les actions nocturnes des IA (Inquisiteur, Créatures, Alchimiste), résout l'Aube et passe à `debat_jour`.
+    - Si la partie est en `debat_jour` : fait parler séquentiellement chaque agent IA vivant dans le chat public, puis passe à `vote_jour`.
+    - Si la partie est en `vote_jour` : fait voter tous les agents IA vivants, dépouille le vote du Conseil et passe à la nuit suivante.
+    - Si la partie est en `tour_garde_du_corps` : fait tirer le Garde du Corps et reprend la partie.
+    """
+    partie = depot_parties.obtenir(partie_id)
+    if partie is None:
+        raise HTTPException(status_code=404, detail="Partie introuvable.")
+
+    moteur = MoteurPartieFSM(partie)
+    phase_depart = partie.phase_actuelle
+    evenements_tour: list[str] = []
+
+    if phase_depart == PhasePartie.TERMINEE:
+        return {
+            "phase_executee": phase_depart.value,
+            "evenements": ["La partie est déjà terminée."],
+            "etat": serialiser_partie_pour_humain(partie),
+        }
+
+    # 1. PHASE DE NUIT -> Actions secrètes IA + Résolution de l'Aube
+    if phase_depart in (PhasePartie.NUIT, PhasePartie.TOUR_ALCHIMISTE):
+        if partie.phase_actuelle == PhasePartie.NUIT:
+            # a) Inquisiteur IA
+            inquisiteur = next(
+                (
+                    j
+                    for j in partie.joueurs_vivants()
+                    if not j.est_humain and j.role == RolePersonnage.INQUISITEUR
+                ),
+                None,
+            )
+            if inquisiteur:
+                rep_inq, _ = await interroger_agent_ia(
+                    partie,
+                    inquisiteur,
+                    "C'est la nuit. Choisis un joueur vivant (cible_id) à inspecter avec le pouvoir 'inquisiteur_inspecter'.",
+                )
+                cible_inq = (
+                    partie.obtenir_joueur(rep_inq.action_technique.cible_id)
+                    if rep_inq.action_technique.cible_id
+                    else None
+                )
+                if not cible_inq or not cible_inq.est_vivant or cible_inq.id == inquisiteur.id:
+                    cible_inq = choisir_cible_aleatoire_fallback(partie, inquisiteur)
+                if cible_inq:
+                    try:
+                        executer_inspection_inquisiteur(partie, inquisiteur, cible_inq.id)
+                        evenements_tour.append("L'Inquisiteur a inspecté un joueur dans l'ombre.")
+                    except ErreurRegleJeu:
+                        pass
+
+            # b) Créatures de la Nuit IA (discussion secrète + vote nocturne)
+            for creature in partie.creatures_vivantes():
+                if creature.est_humain:
+                    continue
+                rep_creat, tokens_c = await interroger_agent_ia(
+                    partie,
+                    creature,
+                    "C'est la nuit. Propose à ton coéquipier Créature une cible Citoyen à dévorer et indique son id ou nom dans cible_id.",
+                )
+                if rep_creat.declaration_publique:
+                    msg_secret = MessagePartie(
+                        partie_id=partie.id,
+                        joueur_emetteur_id=creature.id,
+                        nom_emetteur=creature.nom_affiche,
+                        canal=CanalMessage.CREATURE_SECRET,
+                        tour=partie.tour_actuel,
+                        phase=PhasePartie.NUIT,
+                        contenu=rep_creat.declaration_publique,
+                        est_ia=True,
+                        tokens_utilises=tokens_c,
+                    )
+                    partie.messages.append(msg_secret)
+
+                cible_c = (
+                    partie.obtenir_joueur(rep_creat.action_technique.cible_id)
+                    if rep_creat.action_technique.cible_id
+                    else None
+                )
+                if (
+                    not cible_c
+                    or not cible_c.est_vivant
+                    or cible_c.role == RolePersonnage.CREATURE
+                ):
+                    cible_c = choisir_cible_aleatoire_fallback(
+                        partie, creature, exclure_creatures=True
+                    )
+                if cible_c:
+                    try:
+                        enregistrer_vote(
+                            partie,
+                            creature,
+                            cible_c.id,
+                            argumentation=rep_creat.declaration_publique,
+                        )
+                    except ErreurRegleJeu:
+                        pass
+
+            moteur.clore_votes_creatures_vers_alchimiste()
+
+        # c) Résolution de l'Aube
+        morts = moteur.resoudre_aube()
+        evenements_tour.append(
+            f"Aube résolue ({len(morts)} éliminé(s)) -> Passage à {partie.phase_actuelle.value}."
+        )
+
+    # 2. PHASE DE DÉBAT DIURNE -> Prise de parole séquentielle des IA vivantes
+    elif phase_depart == PhasePartie.DEBAT_JOUR:
+        for agent in partie.joueurs_vivants():
+            if agent.est_humain:
+                continue
+            rep_ia, tokens = await interroger_agent_ia(
+                partie,
+                agent,
+                "C'est le débat public du jour. Réagis aux morts de la nuit et aux messages précédents en 1 ou 2 phrases.",
+            )
+            msg = MessagePartie(
+                partie_id=partie.id,
+                joueur_emetteur_id=agent.id,
+                nom_emetteur=agent.nom_affiche,
+                canal=CanalMessage.VILLAGE_PUBLIC,
+                tour=partie.tour_actuel,
+                phase=PhasePartie.DEBAT_JOUR,
+                contenu=rep_ia.declaration_publique,
+                est_ia=True,
+                tokens_utilises=tokens,
+            )
+            partie.messages.append(msg)
+            evenements_tour.append(f"{agent.nom_affiche} a pris la parole ({tokens} tokens).")
+
+        moteur.passer_au_vote_du_jour()
+        evenements_tour.append("Débat terminé -> Passage à la phase vote_jour.")
+
+    # 3. PHASE DE VOTE DU JOUR -> Votes des IA + Dépouillement du Conseil
+    elif phase_depart == PhasePartie.VOTE_JOUR:
+        for agent in partie.joueurs_vivants():
+            if agent.est_humain:
+                continue
+            rep_vote, tokens = await interroger_agent_ia(
+                partie,
+                agent,
+                "C'est l'heure du vote du Conseil ! Choisis obligatoirement un joueur vivant (cible_id) contre qui voter et justifie ton vote dans declaration_publique.",
+            )
+            cible_v = (
+                partie.obtenir_joueur(rep_vote.action_technique.cible_id)
+                if rep_vote.action_technique.cible_id
+                else None
+            )
+            if not cible_v or not cible_v.est_vivant or cible_v.id == agent.id:
+                cible_v = choisir_cible_aleatoire_fallback(partie, agent)
+
+            if cible_v:
+                enregistrer_vote(
+                    partie,
+                    agent,
+                    cible_v.id,
+                    argumentation=rep_vote.declaration_publique,
+                )
+                msg_vote = MessagePartie(
+                    partie_id=partie.id,
+                    joueur_emetteur_id=agent.id,
+                    nom_emetteur=agent.nom_affiche,
+                    canal=CanalMessage.VILLAGE_PUBLIC,
+                    tour=partie.tour_actuel,
+                    phase=PhasePartie.VOTE_JOUR,
+                    contenu=f"[Vote contre {cible_v.nom_affiche}] {rep_vote.declaration_publique}",
+                    est_ia=True,
+                    tokens_utilises=tokens,
+                )
+                partie.messages.append(msg_vote)
+                evenements_tour.append(
+                    f"{agent.nom_affiche} a voté contre {cible_v.nom_affiche}."
+                )
+
+        elimine = moteur.resoudre_vote_du_jour()
+        evenements_tour.append(
+            f"Conseil résolu : {elimine.nom_affiche if elimine else 'Personne (égalité)'} éliminé."
+        )
+
+    # 4. TOUR DU GARDE DU CORPS -> Tir de vengeance
+    elif phase_depart == PhasePartie.TOUR_GARDE_DU_CORPS:
+        garde = (
+            partie.obtenir_joueur(partie.garde_du_corps_en_attente_id)
+            if partie.garde_du_corps_en_attente_id
+            else None
+        )
+        if garde:
+            cible_tir = choisir_cible_aleatoire_fallback(partie, garde)
+            if cible_tir:
+                executer_tir_garde_du_corps(partie, garde, cible_tir.id)
+                evenements_tour.append(
+                    f"Dernier souffle : {garde.nom_affiche} a abattu {cible_tir.nom_affiche} !"
+                )
+            moteur.reprendre_apres_tir_garde_du_corps(origine_nuit=True)
+
+    return {
+        "phase_executee": phase_depart.value,
+        "nouvelle_phase": partie.phase_actuelle.value,
+        "evenements": evenements_tour,
+        "etat": serialiser_partie_pour_humain(partie),
+    }
 
 
 @router.post("/parties/{partie_id}/messages")
@@ -227,4 +455,3 @@ async def executer_action(
         return action.model_dump(mode="json")
     except ErreurRegleJeu as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-
