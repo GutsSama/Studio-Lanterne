@@ -179,19 +179,78 @@ def extraire_fournisseur(modele: str) -> str:
 
 def nettoyer_json_llm(texte: str) -> str:
     """Extrait l'objet JSON même si le modèle entoure sa réponse de balises <think> ou ```json."""
-    # Supprimer d'éventuelles balises <think>...</think> (ex: Qwen / Reasoning models)
     texte = re.sub(r"<think>.*?</think>", "", texte, flags=re.DOTALL).strip()
-    # Supprimer les blocs markdown ```json ... ```
     if "```" in texte:
         match_bloc = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", texte, flags=re.DOTALL)
         if match_bloc:
             return match_bloc.group(1).strip()
-    # Sinon extraire du premier '{' au dernier '}'
     debut_idx = texte.find("{")
     fin_idx = texte.rfind("}")
     if debut_idx != -1 and fin_idx != -1 and fin_idx > debut_idx:
         return texte[debut_idx : fin_idx + 1]
     return texte
+
+
+def parser_json_ia_robuste(texte: str) -> dict[str, Any]:
+    """Parse le JSON du LLM et répare automatiquement une chaîne tronquée ou mal échappée."""
+    nettoye = nettoyer_json_llm(texte)
+    try:
+        return json.loads(nettoye)
+    except json.JSONDecodeError:
+        # Extraction par expressions régulières si le JSON a été coupé ou mal échappé
+        def extraire_champ(pattern: str, defaut: str | None = None) -> str | None:
+            m = re.search(pattern, nettoye, flags=re.DOTALL)
+            return m.group(1).strip() if m else defaut
+
+        return {
+            "analyse_interne": extraire_champ(
+                r'"analyse_interne"\s*:\s*"([^"]*)', "Analyse stratégique en cours."
+            ),
+            "action_technique": {
+                "cible_id": extraire_champ(r'"cible_id"\s*:\s*"([^"]+)'),
+                "pouvoir_utilise": extraire_champ(r'"pouvoir_utilise"\s*:\s*"([^"]+)'),
+            },
+            "declaration_publique": extraire_champ(
+                r'"declaration_publique"\s*:\s*"([^"]*)',
+                "Observons attentivement les réactions de chacun.",
+            ),
+        }
+
+
+def normaliser_cles_json_ia(donnees: dict[str, Any], phase_defaut: PhasePartie) -> dict[str, Any]:
+    """Tolère les variantes de nommage courantes des LLM (ex: analysis_interne -> analyse_interne)."""
+    analyse = (
+        donnees.get("analyse_interne")
+        or donnees.get("analysis_interne")
+        or donnees.get("pensees_secretes")
+        or donnees.get("reflexion")
+        or "Observation stratégique."
+    )
+    declaration = (
+        donnees.get("declaration_publique")
+        or donnees.get("public_declaration")
+        or donnees.get("message_chat")
+        or donnees.get("message")
+        or "Je reste attentif à vos réactions."
+    )
+    act = donnees.get("action_technique") or donnees.get("technical_action") or {}
+    if not isinstance(act, dict):
+        act = {}
+
+    # Normaliser le pouvoir s'il ne correspond pas exactement à l'enum
+    pouvoir_brut = act.get("pouvoir_utilise")
+    valeurs_pouvoir = {e.value for e in TypeActionJeu}
+    pouvoir_final = pouvoir_brut if pouvoir_brut in valeurs_pouvoir else None
+
+    return {
+        "analyse_interne": str(analyse),
+        "action_technique": {
+            "phase": phase_defaut.value,
+            "cible_id": act.get("cible_id") or act.get("target_id") or act.get("cible"),
+            "pouvoir_utilise": pouvoir_final,
+        },
+        "declaration_publique": str(declaration),
+    }
 
 
 def calculer_cout_reel_litellm(response: Any, modele: str, total_tokens: int) -> float:
@@ -299,37 +358,76 @@ async def interroger_agent_ia(
 
     try:
         try:
+            # Les modèles Gemma sur Google AI Studio ne supportent pas le rôle 'system' séparé (erreur 500)
+            messages_effectifs = (
+                [
+                    {
+                        "role": "user",
+                        "content": f"{messages[0]['content']}\n\n{messages[1]['content']}",
+                    }
+                ]
+                if "gemma" in modele and len(messages) == 2
+                else messages
+            )
+            kwargs_extra = (
+                {"response_format": {"type": "json_object"}}
+                if "gemma" not in modele
+                else {}
+            )
             response: Any = await asyncio.wait_for(
                 litellm.acompletion(
                     model=modele,
-                    messages=messages,
+                    messages=messages_effectifs,
                     temperature=temperature,
-                    response_format={"type": "json_object"},
-                    max_tokens=400,
+                    max_tokens=1024,
+                    **kwargs_extra,
                 ),
                 timeout=settings.llm_timeout_seconds,
             )
         except Exception as err_primaire:
-            # Si le compte Mistral renvoie 429 (code 1300 quota gratuit bloqué), bascule intelligente sur Gemini 2.5 Flash Lite
-            if fournisseur == "MISTRAL" and "429" in str(err_primaire):
-                modele_secours = "gemini/gemini-2.5-flash-lite"
+            # Si le compte Mistral (429), ou un modèle Gemini (404/500) est indisponible,
+            # bascule automatique sur un modèle Groq actif du compte (qwen/qwen3.8-27b ou openai/gpt-oss-120b)
+            if any(
+                code in str(err_primaire)
+                for code in ("429", "404", "500", "NotFound", "Internal")
+            ):
+                modele_secours = (
+                    "groq/qwen/qwen3.8-27b"
+                    if "gemma" in modele
+                    else "groq/openai/gpt-oss-120b"
+                )
                 logger.info(
-                    "Quota Mistral 429 détecté pour %s -> Relais automatique sur %s",
+                    "Indisponibilité %s pour %s -> Relais automatique sur %s",
+                    modele,
                     agent.nom_affiche,
                     modele_secours,
                 )
                 modele = modele_secours
-                fournisseur = "GEMINI (RELAIS MISTRAL)"
-                response = await asyncio.wait_for(
-                    litellm.acompletion(
-                        model=modele,
-                        messages=messages,
-                        temperature=temperature,
-                        response_format={"type": "json_object"},
-                        max_tokens=400,
-                    ),
-                    timeout=settings.llm_timeout_seconds,
-                )
+                fournisseur = extraire_fournisseur(modele)
+                try:
+                    response = await asyncio.wait_for(
+                        litellm.acompletion(
+                            model=modele,
+                            messages=messages,
+                            temperature=temperature,
+                            response_format={"type": "json_object"},
+                            max_tokens=1024,
+                        ),
+                        timeout=settings.llm_timeout_seconds,
+                    )
+                except Exception:
+                    modele = "groq/openai/gpt-oss-20b"
+                    fournisseur = "GROQ"
+                    response = await asyncio.wait_for(
+                        litellm.acompletion(
+                            model=modele,
+                            messages=messages,
+                            temperature=temperature,
+                            response_format={"type": "json_object"},
+                            max_tokens=1024,
+                        ),
+                        timeout=settings.llm_timeout_seconds,
+                    )
             else:
                 raise
 
@@ -344,7 +442,8 @@ async def interroger_agent_ia(
         )
         cout_appel = calculer_cout_reel_litellm(response, modele, tokens_utilises)
 
-        donnees = json.loads(nettoyer_json_llm(contenu_brut))
+        donnees_brutes = parser_json_ia_robuste(contenu_brut)
+        donnees = normaliser_cles_json_ia(donnees_brutes, partie.phase_actuelle)
         reponse_validee = ReponseAgentIA.model_validate(donnees)
 
         # Mise à jour de la mémoire stratégique interne (strictement côté serveur)

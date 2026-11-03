@@ -47,7 +47,7 @@ CATALOGUE_PERSONNALITES_DEFAUT: list[PersonnaliteIA] = [
             "des jeux de mots et une fausse naïveté, mais sous tes airs innocents tu analyses "
             "finement le contexte et manipules les votes."
         ),
-        modele_par_defaut="gemini/gemini-2.5-flash",
+        modele_par_defaut="gemini/gemma-4-26b-a4b-it",
         temperature=0.85,
     ),
     PersonnaliteIA(
@@ -148,6 +148,7 @@ class DepotPartiesHybride:
                     if all(
                         "/" in m
                         and "gemini-1.5" not in m
+                        and "gemini-2.5" not in m
                         and "llama-3.1" not in m
                         for m in modeles
                     ):
