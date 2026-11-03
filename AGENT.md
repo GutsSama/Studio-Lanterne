@@ -53,8 +53,8 @@ Studio-Lanterne/
 
 ### 3.1. Dispositif Anti-Triche & Cloisonnement Contextuel
 * **Filtrage strict côté Backend ([`backend/app/agents/context_builder.py`](backend/app/agents/context_builder.py)) :** Ne **jamais** envoyer l'état global de la partie ou les rôles cachés dans le prompt d'un agent IA.
-  * Un agent **Citoyen** ne reçoit **que** l'historique du canal `jour_public` et les informations liées à son propre rôle.
-  * Un agent **Créature de la Nuit** reçoit le canal `nuit_loups` uniquement pendant la nuit et connaît ses complices.
+  * Un agent **Citoyen** ne reçoit **que** l'historique des canaux `village_public` / `systeme` et les informations liées à son propre rôle.
+  * Un agent **Créature de la Nuit** reçoit le canal `creature_secret` et connaît son coéquipier Créature.
 * **Autorité du Moteur ([`backend/app/engine/`](backend/app/engine/)) :** Le LLM propose une intention ; le backend valide systématiquement que l'agent est en vie, que la phase autorise l'action et que la cible est valide.
 
 ### 3.2. Sortie Structurée Obligatoire (JSON Mode)
@@ -63,11 +63,11 @@ Tous les appels LLM effectués via **LiteLLM** ([`backend/app/agents/orchestrato
 {
   "analyse_interne": "Réflexion stratégique privée (jamais exposée aux autres joueurs)",
   "action_technique": {
-    "phase": "nuit_loups | nuit_voyante | nuit_sorciere | jour_debat | jour_vote | ...",
-    "cible_id": "uuid-du-joueur-cible-ou-null",
-    "pouvoir_utilise": "aucun | devorer | sonder | potion_vie | potion_mort | ..."
+    "phase": "nuit | debat_jour | vote_jour | tour_alchimiste | tour_garde_du_corps",
+    "cible_id": "uuid-ou-nom-du-joueur-cible-ou-null",
+    "pouvoir_utilise": "inquisiteur_inspecter | alchimiste_soigner | alchimiste_empoisonner | garde_du_corps_tirer | null"
   },
-  "declaration_publique": "Message affiché dans le chat (ou null si action silencieuse)"
+  "declaration_publique": "Message affiché dans le chat"
 }
 ```
 * Toujours prévoir un **fallback** déterministe si un fournisseur LLM échoue, dépasse le `LLM_TIMEOUT_SECONDS` ou renvoie un JSON invalide, afin de ne jamais bloquer la boucle de jeu.

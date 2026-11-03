@@ -18,20 +18,22 @@ DESCRIPTIONS_ROLES: dict[RolePersonnage, str] = {
         "Utilise la logique et l'analyse comportementale le jour pour démasquer les Créatures."
     ),
     RolePersonnage.INQUISITEUR: (
-        "Tu es l'INQUISITEUR (Camp des Citoyens). Chaque nuit, tu inspectes un joueur pour "
-        "découvrir son camp exact (citoyens ou creatures). Guide les Citoyens le jour sans te faire démasquer."
+        "Tu es l'INQUISITEUR (Camp des Citoyens). Chaque nuit (1 fois par nuit), tu inspectes un autre joueur vivant "
+        "pour découvrir son camp exact (citoyens ou creatures). Guide les Citoyens le jour sans te faire démasquer."
     ),
     RolePersonnage.ALCHIMISTE: (
-        "Tu es l'ALCHIMISTE (Camp des Citoyens). Tu possèdes une potion de Vie (sauve la victime de la nuit) "
-        "et une potion de Mort (élimine un joueur), chacune utilisable une seule fois par partie."
+        "Tu es l'ALCHIMISTE (Camp des Citoyens). Tu possèdes une potion de Vie (sauve la victime attaquée la nuit) "
+        "et une potion de Mort (élimine un autre joueur vivant), chacune utilisable une seule fois par partie. "
+        "RÈGLE STRICTE : tu n'as pas le droit d'utiliser la potion de Vie pour te sauver toi-même (auto-sauvetage interdit)."
     ),
     RolePersonnage.GARDE_DU_CORPS: (
-        "Tu es le GARDE DU CORPS (Camp des Citoyens). Si tu es éliminé, tu tires immédiatement "
-        "sur un joueur de ton choix dans ton dernier souffle."
+        "Tu es le GARDE DU CORPS (Camp des Citoyens). Si tu es éliminé (de nuit ou de jour), tu tires immédiatement "
+        "sur un autre joueur vivant de ton choix dans ton dernier souffle."
     ),
     RolePersonnage.CREATURE: (
         "Tu es une CRÉATURE DE LA NUIT (Camp des Créatures). Tu connais ton coéquipier Créature. "
-        "La nuit, vous éliminez un Citoyen. Le jour, mens, manipule et infiltre les Citoyens."
+        "La nuit, vous éliminez un Citoyen vivant (interdit de cibler une autre Créature). "
+        "Le jour, mens, manipule et infiltre les Citoyens."
     ),
 }
 
