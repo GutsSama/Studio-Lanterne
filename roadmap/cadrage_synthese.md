@@ -39,13 +39,13 @@
     3.  *Résilience via LiteLLM :* Normalisation des sorties sous schéma Pydantic strict et isolation des timeouts (3,5 s max par appel avec fallback local).
 *   **Répartition des 5 Agents IA :**
 
-| Agent IA | Profil Psychologique | Modèle & Fournisseur | Rôle / Atout |
+| Agent IA (`seed.sql`) | Archétype & Profil Psychologique | Modèle LiteLLM & Fournisseur | Rôle / Atout |
 | :--- | :--- | :--- | :--- |
-| **Agent 1** | *Le Leader Agressif* | Llama 3.1 8B (**Groq**) | Vitesse (< 400ms), lance le débat |
-| **Agent 2** | *Le Logicien Méfiant* | Mistral Small (**Mistral AI**) | Rigueur d'analyse, concision |
-| **Agent 3** | *Le Bluffeur Imperturbable* | Gemini 1.5 Flash (**Google**) | Analyse synthétique du contexte |
-| **Agent 4** | *Le Suiveur Conciliant* | Llama 3.1 8B (**Groq**) | Réactivité pour rebondir en fin de tour |
-| **Agent 5** | *Le Diplomate / Médiateur* | Mistral Small (**Mistral AI**) | Modération et recherche de consensus |
+| **Gérard le Râleur** | `mauvais_joueur` (*Le Leader Agressif*) | `groq/llama-3.1-8b-instant` (**Groq**) | Vitesse (< 400ms), lance le débat |
+| **Elena la Stratège** | `stratege` (*La Logicienne Méfiante*) | `mistral/mistral-small-latest` (**Mistral AI**) | Rigueur d'analyse, concision |
+| **Bob le Rigolo** | `drole` (*Le Bluffeur Imperturbable*) | `gemini/gemini-1.5-flash` (**Google**) | Analyse synthétique du contexte |
+| **Sœur Béatrice** | `mystique` (*La Diplomate Mystique*) | `mistral/mistral-small-latest` (**Mistral AI**) | Modération et ton solennel |
+| **Lucas le Paranoïaque** | `paranoiaque` (*Le Suiveur Nerveux*) | `groq/llama-3.1-8b-instant` (**Groq**) | Réactivité pour rebondir en fin de tour |
 
 *   **Débat diurne ordonné :**  
     Débat séquentiel en **2 tours de table**. Chaque agent reçoit les répliques émises juste avant lui pour rebondir et s'écouter réellement. En cas de timeout ou panne d'un modèle, seul l'agent concerné bascule sur un vote par défaut sans bloquer les autres.
@@ -61,7 +61,7 @@
     ```json
     {
       "analyse_interne": "Raisonnement stratégique masqué (CoT)",
-      "action_technique": { "phase": "JOUR_VOTE", "cible_id": "Joueur_3", "pouvoir_utilise": null },
+      "action_technique": { "phase": "vote_jour", "cible_id": "Joueur_3", "pouvoir_utilise": null },
       "declaration_publique": "Mon message visible dans le chat."
     }
     ```

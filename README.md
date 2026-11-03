@@ -1,6 +1,6 @@
-# 🐺 Studio Lanterne — Plateforme Loup-Garou vs IA
+# 🌙 Studio Lanterne — Créatures de la Nuit vs IA
 
-> Plateforme web de jeu de société numérique permettant à un joueur humain d'affronter en solo plusieurs agents d'intelligence artificielle aux personnalités marquées et aux stratégies divergentes.
+> Plateforme web de jeu de déduction sociale numérique permettant à un joueur humain d'affronter en solo plusieurs agents d'intelligence artificielle aux personnalités marquées et aux stratégies divergentes.
 
 <p align="center">
   <img src="roadmap/Gemini_Generated_Image_c9dltuc9dltuc9dl.jpg" alt="Plan d'Architecture du Projet" width="850">
@@ -10,13 +10,13 @@
 
 ## 📋 Contexte & Cahier des Charges
 
-Le **Studio Lanterne**, éditeur indépendant de jeux de société numériques, constate la difficulté d'organiser des parties de Loup-Garou en ligne (réunir 6 à 12 joueurs simultanément). Les robots existants étant scriptés et prévisibles, le studio a commandé une plateforme où les adversaires sont pilotés par des LLM dotés de personnalités uniques, capables de bluffer, accuser, débattre et comploter en secret.
+Le **Studio Lanterne**, éditeur indépendant de jeux de société numériques, constate la difficulté d'organiser des parties de déduction sociale en ligne (réunir 6 à 12 joueurs simultanément). Les robots existants étant scriptés et prévisibles, le studio a commandé une plateforme originale (**Créatures de la Nuit**, libre de droits) où les adversaires sont pilotés par des LLM dotés de personnalités uniques, capables de bluffer, accuser, débattre et comploter en secret.
 
 ### Exigences Clés du Client :
 * **Agents IA Expressifs & Stratèges :** Au moins 5 agents par partie avec des archétypes distincts (*mauvais joueur, stratège, drôle, paranoïaque, mystique*).
-* **Communication Secrète Nocturne :** Chat secret de nuit réservé aux Loups-Garous, hermétiquement clos vis-à-vis des villageois.
+* **Communication Secrète Nocturne :** Chat secret de nuit réservé aux Créatures de la Nuit, hermétiquement clos vis-à-vis des Citoyens.
 * **Moteur de Règles Strict (Anti-Triche) :** Aucune décision ou hallucination d'un agent ne peut modifier l'état de jeu sans validation du moteur backend.
-* **Maîtrise des Coûts (Low-Cost) :** Suivi en temps réel des tokens et du coût par partie avec modèles optimisés (ex. Mistral Small, Groq / Llama 3).
+* **Maîtrise des Coûts (Low-Cost) :** Suivi en temps réel des tokens et du coût par partie avec modèles optimisés (Groq / Llama 3.1, Mistral Small, Gemini 1.5 Flash via LiteLLM).
 * **Conformité RGPD & AI Act :** Information explicite du joueur sur la nature artificielle de ses adversaires, minimisation des données collectées, suppression en cascade.
 * **Comptes Sécurisés & Gamification :** Authentification sécurisée, statistiques de parties et succès déblocables (*achievements*).
 
@@ -132,7 +132,7 @@ erDiagram
 
 * **`profils`** (<u>id</u>, nom_utilisateur, avatar_url, consentement_ai_act, date_consentement_ai_act, cree_le, mis_a_jour_le)  
   *Clé étrangère : `id` → `auth.users(id)` ON DELETE CASCADE*
-* **`statistiques_joueurs`** (<u>#joueur_id</u>, parties_jouees, parties_gagnees, parties_perdues, victoires_villageois, victoires_loups_garous, victoires_solo, temps_de_jeu_total_secondes, mis_a_jour_le)  
+* **`statistiques_joueurs`** (<u>#joueur_id</u>, parties_jouees, parties_gagnees, parties_perdues, victoires_citoyens, victoires_creatures, victoires_solo, temps_de_jeu_total_secondes, mis_a_jour_le)  
   *Clé étrangère : `joueur_id` → `profils(id)`*
 * **`succes`** (<u>id</u>, code, titre, description, icone_badge, points, cree_le)
 * **`succes_joueurs`** (<u>#joueur_id, #succes_id</u>, debloque_le)  
@@ -153,10 +153,10 @@ erDiagram
 
 ### 3. Fonctionnalités Métier Implémentées en Base
 
-#### A. Cloisonnement et Chat Secret (Loups & Morts)
+#### A. Cloisonnement et Chat Secret (Créatures & Morts)
 Le canal des messages (`messages_partie.canal`) supporte 4 canaux étanches :
 * `village_public` : accessible à tous les joueurs vivants.
-* `loup_garou_secret` : protégé par **Row Level Security (RLS)** — le joueur humain ne peut requêter ces lignes que si son rôle est `loup_garou`.
+* `creature_secret` : protégé par **Row Level Security (RLS)** — le joueur humain ne peut requêter ces lignes que si son rôle est `creature`.
 * `chat_morts` : réservé aux joueurs éliminés.
 * `systeme` : annonces publiques du meneur de jeu.
 
@@ -168,12 +168,12 @@ Un trigger SQL (`sur_ajout_message_token`) calcule et incrémente automatiquemen
 * **AI Act :** Champ `consentement_ai_act` obligatoire et horodaté lors de l'on-boarding. Les messages indiquent explicitement `est_ia = true`.
 * **RGPD :** Aucune donnée personnelle superflue n'est collectée (aucun nom de famille ni adresse). La suppression d'un compte utilisateur propage une suppression en cascade (`ON DELETE CASCADE`) sur toutes ses données de jeu associées.
 
-#### D. Catalogue des 5 Personnalités Initiales (Seed)
-1. **Gérard le Râleur** (`mauvais_joueur`) : Méfiant, agressif et prompt à accuser.
-2. **Elena la Stratège** (`stratege`) : Analytique, probabiliste et méthodique.
-3. **Bob le Rigolo** (`drole`) : Humour absurde et fausse naïveté.
-4. **Sœur Béatrice** (`mystique`) : Intuition divine et déclarations prophétiques.
-5. **Lucas le Paranoïaque** (`paranoiaque`) : Craintif, influençable et obsédé par les complots.
+#### D. Catalogue des 5 Personnalités Initiales (Seed Multi-Modèles LiteLLM)
+1. **Gérard le Râleur** (`mauvais_joueur` — `groq/llama-3.1-8b-instant`) : Leader agressif, méfiant, impulsif et prompt à accuser.
+2. **Elena la Stratège** (`stratege` — `mistral/mistral-small-latest`) : Logicienne méfiante, analytique, probabiliste et méthodique.
+3. **Bob le Rigolo** (`drole` — `gemini/gemini-1.5-flash`) : Bluffeur imperturbable, humour absurde et fausse naïveté.
+4. **Sœur Béatrice** (`mystique` — `mistral/mistral-small-latest`) : Diplomate mystique, intuition divine et déclarations prophétiques.
+5. **Lucas le Paranoïaque** (`paranoiaque` — `groq/llama-3.1-8b-instant`) : Suiveur nerveux, craintif, influençable et obsédé par les complots.
 
 ---
 

@@ -1,5 +1,5 @@
 # Document de Cadrage et Architecture Technique
-**Projet :** "Loup-Garou vs IA" (Client : Studio Lanterne)
+**Projet :** "Créatures de la Nuit vs IA" (Client : Studio Lanterne)
 
 ## 1. Vision Globale et Réponse aux Besoins
 La plateforme propose une expérience de jeu fluide, réactive et sécurisée, où un joueur humain affronte cinq agents IA aux personnalités distinctes. L'architecture a été pensée pour garantir un respect strict des règles (anti-triche), une maîtrise totale des coûts (low cost) et une conformité RGPD (AI Act), tout en assurant un déploiement automatisé et accessible.
@@ -23,9 +23,9 @@ La plateforme propose une expérience de jeu fluide, réactive et sécurisée, o
 ## 4. Moteur de Jeu et Dispositif Anti-Triche
 
 *   **Cloisonnement Contextuel par le Backend**
-    *   *Justification :* Les IA ne peuvent pas révéler des informations qu'elles ne possèdent pas, car c'est le serveur FastAPI qui filtre les données envoyées dans le *prompt*. Un agent Villageois ne recevra que l'historique du chat de jour, rendant techniquement impossible toute hallucination sur les discussions nocturnes des Loups-Garous.
+    *   *Justification :* Les IA ne peuvent pas révéler des informations qu'elles ne possèdent pas, car c'est le serveur FastAPI qui filtre les données envoyées dans le *prompt*. Un agent Citoyen ne recevra que l'historique du chat de jour, rendant techniquement impossible toute hallucination sur les discussions nocturnes des Créatures de la Nuit.
 *   **Extraction des Actions par Sortie Structurée (JSON Mode)**
-    *   *Justification :* Pour éviter les plantages liés à la génération de texte libre, les IA sont contraintes de répondre via un format JSON strict comprenant trois champs : `pensees_secretes` (pour forcer la réflexion stratégique), `message_chat` (affiché au joueur), et `action_vote` (valeur exacte extraite de manière fiable par Python).
+    *   *Justification :* Pour éviter les plantages liés à la génération de texte libre, les IA sont contraintes de répondre via un format JSON strict comprenant trois champs : `analyse_interne` (pour forcer la réflexion stratégique masquée), `action_technique` (objet structuré avec `phase`, `cible_id`, `pouvoir_utilise` extrait de manière fiable par Python), et `declaration_publique` (affichée au joueur).
 
 ## 5. Assurance Qualité, Sécurité et Déploiement
 

@@ -1,16 +1,16 @@
 -- =============================================================================
--- MIGRATION INITIALE : STUDIO LANTERNE - LOUP-GAROU VS IA (FRANÇAIS)
+-- MIGRATION INITIALE : STUDIO LANTERNE - CRÉATURES DE LA NUIT VS IA (FRANÇAIS)
 -- =============================================================================
 
 -- 0. EXTENSIONS & TYPES ÉNUMÉRÉS
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE TYPE statut_partie AS ENUM ('en_attente', 'en_cours', 'terminee', 'abandonnee');
-CREATE TYPE phase_partie AS ENUM ('nuit', 'debat_jour', 'vote_jour', 'tour_chasseur', 'tour_sorciere', 'terminee');
-CREATE TYPE role_personnage AS ENUM ('villageois', 'loup_garou', 'voyante', 'sorciere', 'chasseur', 'cupidon', 'petite_fille');
-CREATE TYPE camp_partie AS ENUM ('villageois', 'loups_garous', 'solo', 'egalite');
-CREATE TYPE canal_message AS ENUM ('village_public', 'loup_garou_secret', 'chat_morts', 'systeme');
-CREATE TYPE type_action_jeu AS ENUM ('voyante_regarder', 'sorciere_soigner', 'sorciere_empoisonner', 'chasseur_tirer', 'cupidon_lier');
+CREATE TYPE phase_partie AS ENUM ('nuit', 'debat_jour', 'vote_jour', 'tour_garde_du_corps', 'tour_alchimiste', 'terminee');
+CREATE TYPE role_personnage AS ENUM ('citoyen', 'creature', 'inquisiteur', 'alchimiste', 'garde_du_corps');
+CREATE TYPE camp_partie AS ENUM ('citoyens', 'creatures', 'solo', 'egalite');
+CREATE TYPE canal_message AS ENUM ('village_public', 'creature_secret', 'chat_morts', 'systeme');
+CREATE TYPE type_action_jeu AS ENUM ('inquisiteur_inspecter', 'alchimiste_soigner', 'alchimiste_empoisonner', 'garde_du_corps_tirer');
 
 -- =============================================================================
 -- 1. PROFILS & AUTHENTIFICATION (RGPD & AI ACT)
@@ -18,7 +18,7 @@ CREATE TYPE type_action_jeu AS ENUM ('voyante_regarder', 'sorciere_soigner', 'so
 CREATE TABLE public.profils (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     nom_utilisateur TEXT UNIQUE NOT NULL,
-    avatar_url TEXT DEFAULT 'https://api.dicebear.com/7.x/bottts/svg?seed=villageois',
+    avatar_url TEXT DEFAULT 'https://api.dicebear.com/7.x/bottts/svg?seed=citoyen',
     -- Conformité AI Act : Le joueur confirme expressément savoir qu'il affronte des agents IA
     consentement_ai_act BOOLEAN NOT NULL DEFAULT FALSE,
     date_consentement_ai_act TIMESTAMPTZ,
@@ -34,8 +34,8 @@ CREATE TABLE public.statistiques_joueurs (
     parties_jouees INT NOT NULL DEFAULT 0,
     parties_gagnees INT NOT NULL DEFAULT 0,
     parties_perdues INT NOT NULL DEFAULT 0,
-    victoires_villageois INT NOT NULL DEFAULT 0,
-    victoires_loups_garous INT NOT NULL DEFAULT 0,
+    victoires_citoyens INT NOT NULL DEFAULT 0,
+    victoires_creatures INT NOT NULL DEFAULT 0,
     victoires_solo INT NOT NULL DEFAULT 0,
     temps_de_jeu_total_secondes BIGINT NOT NULL DEFAULT 0,
     mis_a_jour_le TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
@@ -67,7 +67,7 @@ CREATE TABLE public.personnalites_ia (
     archetype TEXT NOT NULL, -- 'mauvais_joueur', 'stratege', 'drole', 'paranoiaque', 'mystique'
     avatar_url TEXT NOT NULL,
     prompt_systeme TEXT NOT NULL,
-    modele_par_defaut TEXT NOT NULL DEFAULT 'mistral-small-latest',
+    modele_par_defaut TEXT NOT NULL DEFAULT 'mistral/mistral-small-latest',
     temperature NUMERIC(3, 2) NOT NULL DEFAULT 0.70,
     cree_le TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
@@ -116,7 +116,7 @@ CREATE TABLE public.joueurs_partie (
 );
 
 -- =============================================================================
--- 6. MESSAGES DE LA PARTIE (Chat public, secret loups, morts, système)
+-- 6. MESSAGES DE LA PARTIE (Chat public, secret créatures, morts, système)
 -- =============================================================================
 CREATE TABLE public.messages_partie (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -178,7 +178,7 @@ BEGIN
   INSERT INTO public.profils (id, nom_utilisateur, avatar_url, consentement_ai_act, date_consentement_ai_act)
   VALUES (
     NEW.id,
-    COALESCE(NEW.raw_user_meta_data->>'username', 'Villageois_' || substr(NEW.id::text, 1, 6)),
+    COALESCE(NEW.raw_user_meta_data->>'username', 'Citoyen_' || substr(NEW.id::text, 1, 6)),
     COALESCE(NEW.raw_user_meta_data->>'avatar_url', 'https://api.dicebear.com/7.x/bottts/svg?seed=' || NEW.id),
     COALESCE((NEW.raw_user_meta_data->>'ai_act_consent')::boolean, FALSE),
     CASE WHEN (NEW.raw_user_meta_data->>'ai_act_consent')::boolean THEN now() ELSE NULL END
@@ -256,7 +256,7 @@ CREATE POLICY "Lire les messages autorises" ON public.messages_partie FOR SELECT
         AND (
             canal = 'village_public'
             OR canal = 'systeme'
-            OR (canal = 'loup_garou_secret' AND jp.role = 'loup_garou')
+            OR (canal = 'creature_secret' AND jp.role = 'creature')
             OR (canal = 'chat_morts' AND jp.est_vivant = FALSE)
         )
     )
