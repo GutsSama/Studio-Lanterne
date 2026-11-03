@@ -1,0 +1,247 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1150" width="100%" height="100%" style="background-color: #0b1120; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <defs>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <linearGradient id="userGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0284c7"/>
+      <stop offset="100%" stop-color="#0ea5e9"/>
+    </linearGradient>
+    <linearGradient id="gameGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#a855f7"/>
+    </linearGradient>
+    <linearGradient id="playGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#dc2626"/>
+      <stop offset="100%" stop-color="#f43f5e"/>
+    </linearGradient>
+    <linearGradient id="msgGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#059669"/>
+      <stop offset="100%" stop-color="#10b981"/>
+    </linearGradient>
+    <linearGradient id="voteGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#d97706"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- TITLE HEADER -->
+  <text x="800" y="55" fill="#f8fafc" font-size="28" font-weight="bold" text-anchor="middle" letter-spacing="1">STUDIO LANTERNE — SCHÉMA DE LA BASE DE DONNÉES (POSTGRESQL / SUPABASE)</text>
+  <text x="800" y="85" fill="#94a3b8" font-size="14" text-anchor="middle">Modèle relationnel français avec RLS anti-triche, suivi des coûts en tokens et conformité RGPD / AI Act</text>
+
+  <!-- GRID / TABLE CARDS -->
+
+  <!-- 1. PROFILS -->
+  <g transform="translate(50, 130)" filter="url(#shadow)">
+    <rect width="280" height="230" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <path d="M 0 10 Q 0 0 10 0 L 270 0 Q 280 0 280 10 L 280 40 L 0 40 Z" fill="url(#userGrad)"/>
+    <text x="15" y="26" fill="#ffffff" font-size="16" font-weight="bold">profils</text>
+    <text x="265" y="26" fill="#e0f2fe" font-size="11" text-anchor="end">TABLE</text>
+    <g transform="translate(15, 62)" font-size="12" fill="#e2e8f0">
+      <text y="0" font-weight="bold" fill="#38bdf8">🔑 id</text><text x="250" y="0" fill="#94a3b8" text-anchor="end">UUID (PK)</text>
+      <text y="24">nom_utilisateur</text><text x="250" y="24" fill="#94a3b8" text-anchor="end">TEXT UNIQUE</text>
+      <text y="48">avatar_url</text><text x="250" y="48" fill="#94a3b8" text-anchor="end">TEXT</text>
+      <text y="72" fill="#34d399">consentement_ai_act</text><text x="250" y="72" fill="#94a3b8" text-anchor="end">BOOLEAN</text>
+      <text y="96">date_consentement_ai_act</text><text x="250" y="96" fill="#94a3b8" text-anchor="end">TIMESTAMPTZ</text>
+      <text y="120">cree_le</text><text x="250" y="120" fill="#94a3b8" text-anchor="end">TIMESTAMPTZ</text>
+      <text y="144">mis_a_jour_le</text><text x="250" y="144" fill="#94a3b8" text-anchor="end">TIMESTAMPTZ</text>
+    </g>
+  </g>
+
+  <!-- 2. STATISTIQUES_JOUEURS -->
+  <g transform="translate(50, 400)" filter="url(#shadow)">
+    <rect width="280" height="250" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <path d="M 0 10 Q 0 0 10 0 L 270 0 Q 280 0 280 10 L 280 40 L 0 40 Z" fill="url(#userGrad)"/>
+    <text x="15" y="26" fill="#ffffff" font-size="16" font-weight="bold">statistiques_joueurs</text>
+    <text x="265" y="26" fill="#e0f2fe" font-size="11" text-anchor="end">TABLE</text>
+    <g transform="translate(15, 62)" font-size="12" fill="#e2e8f0">
+      <text y="0" font-weight="bold" fill="#38bdf8">🔗 joueur_id</text><text x="250" y="0" fill="#94a3b8" text-anchor="end">UUID (PK, FK)</text>
+      <text y="24">parties_jouees</text><text x="250" y="24" fill="#94a3b8" text-anchor="end">INT</text>
+      <text y="48">parties_gagnees</text><text x="250" y="48" fill="#94a3b8" text-anchor="end">INT</text>
+      <text y="72">parties_perdues</text><text x="250" y="72" fill="#94a3b8" text-anchor="end">INT</text>
+      <text y="96">victoires_villageois</text><text x="250" y="96" fill="#94a3b8" text-anchor="end">INT</text>
+      <text y="120">victoires_loups_garous</text><text x="250" y="120" fill="#94a3b8" text-anchor="end">INT</text>
+      <text y="144">victoires_solo</text><text x="250" y="144" fill="#94a3b8" text-anchor="end">INT</text>
+      <text y="168">temps_de_jeu_total_secondes</text><text x="250" y="168" fill="#94a3b8" text-anchor="end">BIGINT</text>
+    </g>
+  </g>
+
+  <!-- 3. SUCCES & SUCCES_JOUEURS -->
+  <g transform="translate(50, 690)" filter="url(#shadow)">
+    <rect width="280" height="200" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <path d="M 0 10 Q 0 0 10 0 L 270 0 Q 280 0 280 10 L 280 40 L 0 40 Z" fill="url(#userGrad)"/>
+    <text x="15" y="26" fill="#ffffff" font-size="16" font-weight="bold">succes</text>
+    <text x="265" y="26" fill="#e0f2fe" font-size="11" text-anchor="end">TABLE</text>
+    <g transform="translate(15, 62)" font-size="12" fill="#e2e8f0">
+      <text y="0" font-weight="bold" fill="#38bdf8">🔑 id</text><text x="250" y="0" fill="#94a3b8" text-anchor="end">UUID (PK)</text>
+      <text y="24">code</text><text x="250" y="24" fill="#94a3b8" text-anchor="end">TEXT UNIQUE</text>
+      <text y="48">titre</text><text x="250" y="48" fill="#94a3b8" text-anchor="end">TEXT</text>
+      <text y="72">description</text><text x="250" y="72" fill="#94a3b8" text-anchor="end">TEXT</text>
+      <text y="96">icone_badge</text><text x="250" y="96" fill="#94a3b8" text-anchor="end">TEXT</text>
+      <text y="120">points</text><text x="250" y="120" fill="#94a3b8" text-anchor="end">INT</text>
+    </g>
+  </g>
+
+  <g transform="translate(50, 930)" filter="url(#shadow)">
+    <rect width="280" height="130" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <path d="M 0 10 Q 0 0 10 0 L 270 0 Q 280 0 280 10 L 280 40 L 0 40 Z" fill="url(#userGrad)"/>
+    <text x="15" y="26" fill="#ffffff" font-size="16" font-weight="bold">succes_joueurs</text>
+    <text x="265" y="26" fill="#e0f2fe" font-size="11" text-anchor="end">TABLE</text>
+    <g transform="translate(15, 62)" font-size="12" fill="#e2e8f0">
+      <text y="0" font-weight="bold" fill="#38bdf8">🔗 joueur_id</text><text x="250" y="0" fill="#94a3b8" text-anchor="end">UUID (PK, FK)</text>
+      <text y="24" font-weight="bold" fill="#38bdf8">🔗 succes_id</text><text x="250" y="24" fill="#94a3b8" text-anchor="end">UUID (PK, FK)</text>
+      <text y="48">debloque_le</text><text x="250" y="48" fill="#94a3b8" text-anchor="end">TIMESTAMPTZ</text>
+    </g>
+  </g>
+
+  <!-- 4. PARTIES (CENTRE GAUCHE) -->
+  <g transform="translate(420, 130)" filter="url(#shadow)">
+    <rect width="320" height="300" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <path d="M 0 10 Q 0 0 10 0 L 310 0 Q 320 0 320 10 L 320 40 L 0 40 Z" fill="url(#gameGrad)"/>
+    <text x="15" y="26" fill="#ffffff" font-size="16" font-weight="bold">parties</text>
+    <text x="305" y="26" fill="#f3e8ff" font-size="11" text-anchor="end">TABLE</text>
+    <g transform="translate(15, 62)" font-size="12" fill="#e2e8f0">
+      <text y="0" font-weight="bold" fill="#a855f7">🔑 id</text><text x="290" y="0" fill="#94a3b8" text-anchor="end">UUID (PK)</text>
+      <text y="24" font-weight="bold" fill="#38bdf8">🔗 hote_id</text><text x="290" y="24" fill="#94a3b8" text-anchor="end">UUID (FK profils)</text>
+      <text y="48">statut</text><text x="290" y="48" fill="#94a3b8" text-anchor="end">statut_partie (ENUM)</text>
+      <text y="72">phase_actuelle</text><text x="290" y="72" fill="#94a3b8" text-anchor="end">phase_partie (ENUM)</text>
+      <text y="96">tour_actuel</text><text x="290" y="96" fill="#94a3b8" text-anchor="end">INT</text>
+      <text y="120">camp_vainqueur</text><text x="290" y="120" fill="#94a3b8" text-anchor="end">camp_partie (ENUM)</text>
+      <text y="144" fill="#fbbf24" font-weight="bold">tokens_total_utilises</text><text x="290" y="144" fill="#fbbf24" text-anchor="end">INT (TRIGGER)</text>
+      <text y="168" fill="#fbbf24" font-weight="bold">cout_estime_usd</text><text x="290" y="168" fill="#fbbf24" text-anchor="end">NUMERIC (10,6)</text>
+      <text y="192">date_limite_phase</text><text x="290" y="192" fill="#94a3b8" text-anchor="end">TIMESTAMPTZ</text>
+      <text y="216">creee_le</text><text x="290" y="216" fill="#94a3b8" text-anchor="end">TIMESTAMPTZ</text>
+    </g>
+  </g>
+
+  <!-- 5. PERSONNALITES_IA -->
+  <g transform="translate(420, 520)" filter="url(#shadow)">
+    <rect width="320" height="230" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <path d="M 0 10 Q 0 0 10 0 L 310 0 Q 320 0 320 10 L 320 40 L 0 40 Z" fill="url(#gameGrad)"/>
+    <text x="15" y="26" fill="#ffffff" font-size="16" font-weight="bold">personnalites_ia</text>
+    <text x="305" y="26" fill="#f3e8ff" font-size="11" text-anchor="end">CATALOGUE</text>
+    <g transform="translate(15, 62)" font-size="12" fill="#e2e8f0">
+      <text y="0" font-weight="bold" fill="#a855f7">🔑 id</text><text x="290" y="0" fill="#94a3b8" text-anchor="end">UUID (PK)</text>
+      <text y="24">nom</text><text x="290" y="24" fill="#94a3b8" text-anchor="end">TEXT</text>
+      <text y="48">archetype</text><text x="290" y="48" fill="#94a3b8" text-anchor="end">TEXT</text>
+      <text y="72">avatar_url</text><text x="290" y="72" fill="#94a3b8" text-anchor="end">TEXT</text>
+      <text y="96">prompt_systeme</text><text x="290" y="96" fill="#94a3b8" text-anchor="end">TEXT</text>
+      <text y="120">modele_par_defaut</text><text x="290" y="120" fill="#94a3b8" text-anchor="end">TEXT (Mistral)</text>
+      <text y="144">temperature</text><text x="290" y="144" fill="#94a3b8" text-anchor="end">NUMERIC(3,2)</text>
+    </g>
+  </g>
+
+  <!-- 6. JOUEURS_PARTIE (CENTRE DROIT) -->
+  <g transform="translate(820, 130)" filter="url(#shadow)">
+    <rect width="340" height="365" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <path d="M 0 10 Q 0 0 10 0 L 330 0 Q 340 0 340 10 L 340 40 L 0 40 Z" fill="url(#playGrad)"/>
+    <text x="15" y="26" fill="#ffffff" font-size="16" font-weight="bold">joueurs_partie</text>
+    <text x="325" y="26" fill="#ffe4e6" font-size="11" text-anchor="end">TABLE</text>
+    <g transform="translate(15, 62)" font-size="12" fill="#e2e8f0">
+      <text y="0" font-weight="bold" fill="#f43f5e">🔑 id</text><text x="310" y="0" fill="#94a3b8" text-anchor="end">UUID (PK)</text>
+      <text y="24" font-weight="bold" fill="#a855f7">🔗 partie_id</text><text x="310" y="24" fill="#94a3b8" text-anchor="end">UUID (FK parties)</text>
+      <text y="48">est_humain</text><text x="310" y="48" fill="#94a3b8" text-anchor="end">BOOLEAN</text>
+      <text y="72" font-weight="bold" fill="#38bdf8">🔗 joueur_id</text><text x="310" y="72" fill="#94a3b8" text-anchor="end">UUID (FK profils, NULL)</text>
+      <text y="96" font-weight="bold" fill="#a855f7">🔗 personnalite_ia_id</text><text x="310" y="96" fill="#94a3b8" text-anchor="end">UUID (FK personas, NULL)</text>
+      <text y="120">nom_affiche</text><text x="310" y="120" fill="#94a3b8" text-anchor="end">TEXT</text>
+      <text y="144">avatar_url</text><text x="310" y="144" fill="#94a3b8" text-anchor="end">TEXT</text>
+      <text y="168" fill="#f43f5e" font-weight="bold">role</text><text x="310" y="168" fill="#f43f5e" text-anchor="end">role_personnage (RLS)</text>
+      <text y="192">est_vivant</text><text x="310" y="192" fill="#94a3b8" text-anchor="end">BOOLEAN</text>
+      <text y="216">est_capitaine</text><text x="310" y="216" fill="#94a3b8" text-anchor="end">BOOLEAN</text>
+      <text y="240">tour_mort / cause_mort</text><text x="310" y="240" fill="#94a3b8" text-anchor="end">INT / TEXT</text>
+      <text y="264">numero_siege</text><text x="310" y="264" fill="#94a3b8" text-anchor="end">INT UNIQUE</text>
+      <text y="288">memoire_ia</text><text x="310" y="288" fill="#94a3b8" text-anchor="end">JSONB</text>
+    </g>
+  </g>
+
+  <!-- 7. MESSAGES_PARTIE -->
+  <g transform="translate(1230, 130)" filter="url(#shadow)">
+    <rect width="320" height="260" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <path d="M 0 10 Q 0 0 10 0 L 310 0 Q 320 0 320 10 L 320 40 L 0 40 Z" fill="url(#msgGrad)"/>
+    <text x="15" y="26" fill="#ffffff" font-size="16" font-weight="bold">messages_partie</text>
+    <text x="305" y="26" fill="#d1fae5" font-size="11" text-anchor="end">CHAT &amp; SECRET</text>
+    <g transform="translate(15, 62)" font-size="12" fill="#e2e8f0">
+      <text y="0" font-weight="bold" fill="#10b981">🔑 id</text><text x="290" y="0" fill="#94a3b8" text-anchor="end">UUID (PK)</text>
+      <text y="24" font-weight="bold" fill="#a855f7">🔗 partie_id</text><text x="290" y="24" fill="#94a3b8" text-anchor="end">UUID (FK parties)</text>
+      <text y="48" font-weight="bold" fill="#f43f5e">🔗 joueur_emetteur_id</text><text x="290" y="48" fill="#94a3b8" text-anchor="end">UUID (FK joueurs)</text>
+      <text y="72" fill="#10b981" font-weight="bold">canal</text><text x="290" y="72" fill="#10b981" text-anchor="end">canal_message (RLS)</text>
+      <text y="96">tour / phase</text><text x="290" y="96" fill="#94a3b8" text-anchor="end">INT / phase_partie</text>
+      <text y="120">contenu</text><text x="290" y="120" fill="#94a3b8" text-anchor="end">TEXT</text>
+      <text y="144">est_ia</text><text x="290" y="144" fill="#94a3b8" text-anchor="end">BOOLEAN</text>
+      <text y="168" fill="#fbbf24">tokens_utilises</text><text x="290" y="168" fill="#fbbf24" text-anchor="end">INT (TRIGGER)</text>
+    </g>
+  </g>
+
+  <!-- 8. VOTES_PARTIE -->
+  <g transform="translate(1230, 440)" filter="url(#shadow)">
+    <rect width="320" height="230" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <path d="M 0 10 Q 0 0 10 0 L 310 0 Q 320 0 320 10 L 320 40 L 0 40 Z" fill="url(#voteGrad)"/>
+    <text x="15" y="26" fill="#ffffff" font-size="16" font-weight="bold">votes_partie</text>
+    <text x="305" y="26" fill="#fef3c7" font-size="11" text-anchor="end">VOTES STRATÉGIQUES</text>
+    <g transform="translate(15, 62)" font-size="12" fill="#e2e8f0">
+      <text y="0" font-weight="bold" fill="#f59e0b">🔑 id</text><text x="290" y="0" fill="#94a3b8" text-anchor="end">UUID (PK)</text>
+      <text y="24" font-weight="bold" fill="#a855f7">🔗 partie_id</text><text x="290" y="24" fill="#94a3b8" text-anchor="end">UUID (FK parties)</text>
+      <text y="48">tour / phase</text><text x="290" y="48" fill="#94a3b8" text-anchor="end">INT / phase_partie</text>
+      <text y="72" font-weight="bold" fill="#f43f5e">🔗 joueur_votant_id</text><text x="290" y="72" fill="#94a3b8" text-anchor="end">UUID (FK)</text>
+      <text y="96" font-weight="bold" fill="#f43f5e">🔗 joueur_cible_id</text><text x="290" y="96" fill="#94a3b8" text-anchor="end">UUID (FK)</text>
+      <text y="120">argumentation</text><text x="290" y="120" fill="#94a3b8" text-anchor="end">TEXT</text>
+    </g>
+  </g>
+
+  <!-- 9. ACTIONS_PARTIE -->
+  <g transform="translate(1230, 720)" filter="url(#shadow)">
+    <rect width="320" height="230" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <path d="M 0 10 Q 0 0 10 0 L 310 0 Q 320 0 320 10 L 320 40 L 0 40 Z" fill="url(#voteGrad)"/>
+    <text x="15" y="26" fill="#ffffff" font-size="16" font-weight="bold">actions_partie</text>
+    <text x="305" y="26" fill="#fef3c7" font-size="11" text-anchor="end">ACTIONS NOCTURNES</text>
+    <g transform="translate(15, 62)" font-size="12" fill="#e2e8f0">
+      <text y="0" font-weight="bold" fill="#f59e0b">🔑 id</text><text x="290" y="0" fill="#94a3b8" text-anchor="end">UUID (PK)</text>
+      <text y="24" font-weight="bold" fill="#a855f7">🔗 partie_id</text><text x="290" y="24" fill="#94a3b8" text-anchor="end">UUID (FK parties)</text>
+      <text y="48">tour</text><text x="290" y="48" fill="#94a3b8" text-anchor="end">INT</text>
+      <text y="72" font-weight="bold" fill="#f43f5e">🔗 joueur_acteur_id</text><text x="290" y="72" fill="#94a3b8" text-anchor="end">UUID (FK)</text>
+      <text y="96">type_action</text><text x="290" y="96" fill="#94a3b8" text-anchor="end">type_action_jeu</text>
+      <text y="120" font-weight="bold" fill="#f43f5e">🔗 joueur_cible_id</text><text x="290" y="120" fill="#94a3b8" text-anchor="end">UUID (FK)</text>
+      <text y="144">details_resultat</text><text x="290" y="144" fill="#94a3b8" text-anchor="end">JSONB</text>
+    </g>
+  </g>
+
+  <!-- RELATION LINES & LABELS -->
+  <path d="M 330 200 L 420 200" stroke="#38bdf8" stroke-width="2" stroke-dasharray="4" fill="none"/>
+  <path d="M 740 200 L 820 200" stroke="#a855f7" stroke-width="2.5" fill="none"/>
+  <path d="M 1160 200 L 1230 200" stroke="#f43f5e" stroke-width="2.5" fill="none"/>
+  <path d="M 1160 300 L 1200 300 L 1200 500 L 1230 500" stroke="#f43f5e" stroke-width="2" fill="none"/>
+  <path d="M 1160 350 L 1190 350 L 1190 780 L 1230 780" stroke="#f43f5e" stroke-width="2" fill="none"/>
+  <path d="M 740 600 L 800 600 L 800 380 L 820 380" stroke="#a855f7" stroke-width="2" fill="none"/>
+
+  <!-- LEGEND FOOTER -->
+  <g transform="translate(420, 800)" filter="url(#shadow)">
+    <rect width="740" height="260" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1.5"/>
+    <text x="25" y="35" fill="#f8fafc" font-size="15" font-weight="bold">Légende &amp; Règles d'Architecture Supabase :</text>
+    
+    <g transform="translate(25, 65)" font-size="12" fill="#cbd5e1">
+      <circle cx="10" cy="5" r="5" fill="#38bdf8"/>
+      <text x="25" y="9" font-weight="bold">Sécurité &amp; RLS Anti-Triche :</text>
+      <text x="210" y="9">Le joueur humain ne peut requêter le canal secret 'loup_garou_secret' que s'il est loup.</text>
+      
+      <circle cx="10" cy="35" r="5" fill="#fbbf24"/>
+      <text x="25" y="39" font-weight="bold">Mesure Coûts Low-Cost :</text>
+      <text x="210" y="39">Trigger automatique calculant tokens_total_utilises et cout_estime_usd sur la table parties.</text>
+      
+      <circle cx="10" cy="65" r="5" fill="#34d399"/>
+      <text x="25" y="69" font-weight="bold">Conformité AI Act / RGPD :</text>
+      <text x="210" y="69">Minimisation des données (pseudo/avatar), consentement explicite AI Act horodaté.</text>
+
+      <circle cx="10" cy="95" r="5" fill="#f43f5e"/>
+      <text x="25" y="99" font-weight="bold">Intégrité Moteur de Règles :</text>
+      <text x="210" y="99">Contraintes CHECK garantissant qu'un joueur est soit humain, soit piloté par une personnalité IA.</text>
+
+      <circle cx="10" cy="125" r="5" fill="#a855f7"/>
+      <text x="25" y="129" font-weight="bold">Relations &amp; Clés Étrangères :</text>
+      <text x="210" y="129">Toutes les suppressions de comptes se propagent en cascade (ON DELETE CASCADE).</text>
+    </g>
+  </g>
+</svg>
