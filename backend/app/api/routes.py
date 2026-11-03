@@ -4,9 +4,11 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, HTTPException
+import httpx
 from pydantic import BaseModel, Field
 
 from app.agents.orchestrator import interroger_agent_ia, observabilite_llm
+from app.config import settings
 from app.engine.fsm import MoteurPartieFSM
 from app.engine.rules import (
     ErreurRegleJeu,
@@ -131,6 +133,96 @@ async def verifier_connexion_bdd() -> dict[str, Any]:
 async def obtenir_metriques_llm() -> dict[str, Any]:
     """Retourne le tableau de bord complet LiteLLM : coûts USD, tokens, latence ms par modèle et par agent."""
     return observabilite_llm.calculer_synthese()
+
+
+@router.get("/diagnostic-cles", tags=["observabilite"])
+async def diagnostiquer_cles_llm() -> dict[str, Any]:
+    """Teste en direct les 3 clés API (Groq, Mistral, Gemini) et liste les modèles réellement accessibles."""
+    resultats: dict[str, Any] = {}
+
+    async with httpx.AsyncClient(timeout=6.0) as client:
+        # 1. Test GROQ
+        if settings.groq_api_key:
+            try:
+                r_groq = await client.get(
+                    "https://api.groq.com/openai/v1/models",
+                    headers={"Authorization": f"Bearer {settings.groq_api_key}"},
+                )
+                if r_groq.status_code == 200:
+                    modeles_groq = [m["id"] for m in r_groq.json().get("data", [])]
+                    resultats["groq"] = {
+                        "cle_valide": True,
+                        "nb_modeles_autorises": len(modeles_groq),
+                        "modeles_disponibles": modeles_groq[:15],
+                        "conseil": (
+                            "Si la liste est vide (0 modèle), allez sur https://console.groq.com/settings/limits "
+                            "ou dans les paramètres de votre clé API Groq pour autoriser les modèles Llama."
+                            if not modeles_groq
+                            else f"Utilisez l'un de ces modèles avec le préfixe groq/, ex: groq/{modeles_groq[0]}"
+                        ),
+                    }
+                else:
+                    resultats["groq"] = {
+                        "cle_valide": False,
+                        "status_code": r_groq.status_code,
+                        "erreur": r_groq.text[:250],
+                    }
+            except Exception as exc:
+                resultats["groq"] = {"cle_valide": False, "erreur": str(exc)}
+        else:
+            resultats["groq"] = {"cle_valide": False, "erreur": "GROQ_API_KEY absente"}
+
+        # 2. Test MISTRAL
+        if settings.mistral_api_key:
+            try:
+                r_mistral = await client.get(
+                    "https://api.mistral.ai/v1/models",
+                    headers={"Authorization": f"Bearer {settings.mistral_api_key}"},
+                )
+                resultats["mistral"] = {
+                    "cle_valide": r_mistral.status_code == 200,
+                    "status_code": r_mistral.status_code,
+                    "detail": (
+                        "Clé Mistral reconnue ! Si les appels renvoient 429 (code 1300), vérifiez sur "
+                        "https://console.mistral.ai/ que le plan gratuit ('Experiment') est bien activé sur votre espace."
+                        if r_mistral.status_code == 200
+                        else r_mistral.text[:250]
+                    ),
+                }
+            except Exception as exc:
+                resultats["mistral"] = {"cle_valide": False, "erreur": str(exc)}
+        else:
+            resultats["mistral"] = {"cle_valide": False, "erreur": "MISTRAL_API_KEY absente"}
+
+        # 3. Test GEMINI
+        if settings.gemini_api_key:
+            try:
+                r_gemini = await client.get(
+                    f"https://generativelanguage.googleapis.com/v1beta/models?key={settings.gemini_api_key}"
+                )
+                if r_gemini.status_code == 200:
+                    modeles_gem = [
+                        m["name"].replace("models/", "gemini/")
+                        for m in r_gemini.json().get("models", [])
+                        if "generateContent" in m.get("supportedGenerationMethods", [])
+                    ]
+                    resultats["gemini"] = {
+                        "cle_valide": True,
+                        "modeles_disponibles": modeles_gem[:10],
+                    }
+                else:
+                    resultats["gemini"] = {
+                        "cle_valide": False,
+                        "status_code": r_gemini.status_code,
+                        "erreur": r_gemini.text[:250],
+                        "conseil": "Une clé Google AI Studio commence par 'AIzaSy...' (à créer sur https://aistudio.google.com/apikey).",
+                    }
+            except Exception as exc:
+                resultats["gemini"] = {"cle_valide": False, "erreur": str(exc)}
+        else:
+            resultats["gemini"] = {"cle_valide": False, "erreur": "GEMINI_API_KEY absente"}
+
+    return resultats
 
 
 @router.get("/personnalites")

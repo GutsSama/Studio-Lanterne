@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
 
     # Garde-fous Moteur IA & Budget
-    llm_timeout_seconds: float = 3.5
+    llm_timeout_seconds: float = 8.0
     max_tokens_per_game: int = 50000
     sliding_window_messages: int = 8
     debate_rounds_per_day: int = 2

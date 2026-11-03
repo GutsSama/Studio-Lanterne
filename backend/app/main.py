@@ -58,8 +58,14 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-3">
-        <button id="btn-simuler" onclick="simulerTourDirect()" class="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-sm transition shadow-lg shadow-purple-900/40">
+        <button id="btn-simuler" onclick="simulerTourDirect(false)" class="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-sm transition shadow-lg shadow-purple-900/40">
           ⚡ Tester un tour des 5 IA en direct
+        </button>
+        <button onclick="simulerTourDirect(true)" class="px-4 py-2.5 rounded-xl bg-indigo-600/80 hover:bg-indigo-500 text-white font-medium text-sm transition">
+          🆕 Nouvelle Partie
+        </button>
+        <button onclick="verifierCles()" class="px-4 py-2.5 rounded-xl bg-amber-600/80 hover:bg-amber-500 text-white font-medium text-sm transition">
+          🔑 Diagnostiquer mes clés API
         </button>
         <button onclick="chargerMetriques()" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-sm border border-slate-700 transition">
           🔄 Rafraîchir
@@ -230,7 +236,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       }
     }
 
-    async function simulerTourDirect() {
+    async function simulerTourDirect(forcerNouvelle = false) {
       const btn = document.getElementById('btn-simuler');
       const bandeau = document.getElementById('statut-sim');
       btn.disabled = true;
@@ -238,7 +244,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       bandeau.classList.remove('hidden');
 
       try {
-        if (!partieTestId) {
+        if (!partieTestId || forcerNouvelle) {
           const rCreate = await fetch('/api/parties', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -258,6 +264,15 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         btn.disabled = false;
         btn.textContent = '⚡ Tester un tour des 5 IA en direct';
       }
+    }
+
+    async function verifierCles() {
+      const bandeau = document.getElementById('statut-sim');
+      bandeau.classList.remove('hidden');
+      bandeau.innerHTML = '⏳ Vérification des clés Groq, Mistral et Gemini en cours...';
+      const r = await fetch('/api/diagnostic-cles');
+      const d = await r.json();
+      bandeau.innerHTML = '<pre class="text-xs whitespace-pre-wrap font-mono">' + JSON.stringify(d, null, 2) + '</pre>';
     }
 
     chargerMetriques();
