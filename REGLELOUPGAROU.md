@@ -49,10 +49,13 @@ Pour garantir une expérience de jeu immersive et compétitive, vous devez respe
 {
   "analyse_interne": "Ma pensée secrète (Pourquoi je fais ce choix, qui je soupçonne, quelle est ma stratégie de bluff). Cette section est masquée aux autres joueurs.",
   "action_technique": {
-    "phase": "JOUR_DEBAT" // Ou NUIT_ACTION, JOUR_VOTE
-    "cible_id": "Joueur_3", // ID du joueur visé par le pouvoir ou le vote (si applicable)
-    "pouvoir_utilise": null // Ex: "potion_vie", "inspection", ou null
+    "phase": "debat_jour",
+    "cible_id": "Joueur_3",
+    "pouvoir_utilise": null
   },
   "declaration_publique": "Bonjour à tous. Je trouve le comportement de Joueur_3 très suspect depuis ce matin, il esquive les questions. Qu'en pensez-vous ?"
 }
 ```
+*Valeurs techniques SQL possibles :*
+* `phase` : `"nuit"`, `"debat_jour"`, `"vote_jour"`, `"tour_alchimiste"`, `"tour_garde_du_corps"`
+* `pouvoir_utilise` : `"inquisiteur_inspecter"`, `"alchimiste_soigner"`, `"alchimiste_empoisonner"`, `"garde_du_corps_tirer"` ou `null`
