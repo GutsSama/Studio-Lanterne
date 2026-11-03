@@ -71,4 +71,42 @@ def test_zero_information_leak_citoyen_ne_voit_pas_chat_creatures() -> None:
     for j_pub in vue_humain["joueurs"]:
         if not j_pub["est_humain"]:
             assert j_pub["role"] is None
+    assert vue_humain["informations_role_humain"] == {}
+
+
+def test_informations_secretes_humain_alchimiste_et_inquisiteur() -> None:
+    """Vérifie que l'humain Alchimiste ou Inquisiteur reçoit ses propres informations secrètes de rôle."""
+    # Cas 1 : Humain Alchimiste
+    moteur_alch = MoteurPartieFSM.creer_partie_solo_vs_ia(
+        hote_id=uuid4(),
+        nom_humain="Sarah",
+        personnalites_ia=CATALOGUE_PERSONNALITES_DEFAUT,
+        role_humain_force=RolePersonnage.ALCHIMISTE,
+        graine_aleatoire=12,
+    )
+    cible_nuit = moteur_alch.partie.joueurs[1]
+    moteur_alch.partie.victime_provisoire_nuit_id = cible_nuit.id
+
+    vue_alch = serialiser_partie_pour_humain(moteur_alch.partie)
+    infos_alch = vue_alch["informations_role_humain"]
+    assert infos_alch["potion_vie_disponible"] is True
+    assert infos_alch["potion_mort_disponible"] is True
+    assert infos_alch["victime_provisoire_nuit_id"] == str(cible_nuit.id)
+
+    # Cas 2 : Humain Inquisiteur
+    moteur_inq = MoteurPartieFSM.creer_partie_solo_vs_ia(
+        hote_id=uuid4(),
+        nom_humain="Sarah",
+        personnalites_ia=CATALOGUE_PERSONNALITES_DEFAUT,
+        role_humain_force=RolePersonnage.INQUISITEUR,
+        graine_aleatoire=15,
+    )
+    humain_inq = moteur_inq.partie.joueurs[0]
+    humain_inq.memoire_ia.inspections_inquisiteur["joueur-x"] = "creatures"
+
+    vue_inq = serialiser_partie_pour_humain(moteur_inq.partie)
+    assert vue_inq["informations_role_humain"]["inspections_inquisiteur"] == {
+        "joueur-x": "creatures"
+    }
+
 

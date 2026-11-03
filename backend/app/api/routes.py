@@ -110,6 +110,30 @@ def serialiser_partie_pour_humain(partie: EtatPartie) -> dict[str, Any]:
         if m.canal in canaux_autorises
     ]
 
+    # Informations secrètes strictement réservées au rôle du joueur humain
+    informations_role_humain: dict[str, Any] = {}
+    if humain is not None:
+        if role_humain == RolePersonnage.INQUISITEUR:
+            informations_role_humain["inspections_inquisiteur"] = dict(
+                humain.memoire_ia.inspections_inquisiteur
+            )
+        elif role_humain == RolePersonnage.ALCHIMISTE:
+            informations_role_humain["potion_vie_disponible"] = (
+                humain.memoire_ia.potion_vie_disponible
+            )
+            informations_role_humain["potion_mort_disponible"] = (
+                humain.memoire_ia.potion_mort_disponible
+            )
+            informations_role_humain["victime_provisoire_nuit_id"] = (
+                str(partie.victime_provisoire_nuit_id)
+                if partie.victime_provisoire_nuit_id
+                else None
+            )
+        elif role_humain == RolePersonnage.GARDE_DU_CORPS:
+            informations_role_humain["doit_tirer"] = (
+                partie.garde_du_corps_en_attente_id == humain.id
+            )
+
     return {
         "id": str(partie.id),
         "statut": partie.statut.value,
@@ -120,6 +144,7 @@ def serialiser_partie_pour_humain(partie: EtatPartie) -> dict[str, Any]:
         "cout_estime_usd": partie.cout_estime_usd,
         "joueurs": joueurs_publics,
         "messages": messages_autorises,
+        "informations_role_humain": informations_role_humain,
     }
 
 
