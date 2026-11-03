@@ -1,6 +1,13 @@
 """Configuration centralisée du backend via variables d'environnement."""
 
+import os
+from pathlib import Path
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Charger automatiquement backend/.env quel que soit le répertoire courant
+ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(dotenv_path=ENV_PATH, override=True)
 
 
 class Settings(BaseSettings):
@@ -27,7 +34,7 @@ class Settings(BaseSettings):
     debate_rounds_per_day: int = 2
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(ENV_PATH),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -38,4 +45,12 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Garantir que LiteLLM trouve les clés dans os.environ
+if settings.groq_api_key:
+    os.environ.setdefault("GROQ_API_KEY", settings.groq_api_key)
+if settings.mistral_api_key:
+    os.environ.setdefault("MISTRAL_API_KEY", settings.mistral_api_key)
+if settings.gemini_api_key:
+    os.environ.setdefault("GEMINI_API_KEY", settings.gemini_api_key)
 
