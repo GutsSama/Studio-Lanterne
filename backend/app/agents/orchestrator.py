@@ -4,6 +4,7 @@ import asyncio
 from datetime import datetime, timezone
 import json
 import logging
+import re
 import time
 from typing import Any
 from uuid import UUID
@@ -176,6 +177,23 @@ def extraire_fournisseur(modele: str) -> str:
     return "DEFAULT"
 
 
+def nettoyer_json_llm(texte: str) -> str:
+    """Extrait l'objet JSON même si le modèle entoure sa réponse de balises <think> ou ```json."""
+    # Supprimer d'éventuelles balises <think>...</think> (ex: Qwen / Reasoning models)
+    texte = re.sub(r"<think>.*?</think>", "", texte, flags=re.DOTALL).strip()
+    # Supprimer les blocs markdown ```json ... ```
+    if "```" in texte:
+        match_bloc = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", texte, flags=re.DOTALL)
+        if match_bloc:
+            return match_bloc.group(1).strip()
+    # Sinon extraire du premier '{' au dernier '}'
+    debut_idx = texte.find("{")
+    fin_idx = texte.rfind("}")
+    if debut_idx != -1 and fin_idx != -1 and fin_idx > debut_idx:
+        return texte[debut_idx : fin_idx + 1]
+    return texte
+
+
 def calculer_cout_reel_litellm(response: Any, modele: str, total_tokens: int) -> float:
     """Calcule le coût exact en USD via `litellm.completion_cost` (avec repli tarifaire si inconnu)."""
     try:
@@ -272,19 +290,49 @@ async def interroger_agent_ia(
 
     temperature = agent.personnalite.temperature if agent.personnalite else 0.70
     messages = construire_messages_llm(partie, agent, instruction_phase)
+
+    # Anti Rate-Limit (429 code 1300) pour l'offre gratuite Mistral AI (1 requête / seconde max)
+    if fournisseur == "MISTRAL":
+        await asyncio.sleep(1.2)
+
     debut = time.perf_counter()
 
     try:
-        response: Any = await asyncio.wait_for(
-            litellm.acompletion(
-                model=modele,
-                messages=messages,
-                temperature=temperature,
-                response_format={"type": "json_object"},
-                max_tokens=300,
-            ),
-            timeout=settings.llm_timeout_seconds,
-        )
+        try:
+            response: Any = await asyncio.wait_for(
+                litellm.acompletion(
+                    model=modele,
+                    messages=messages,
+                    temperature=temperature,
+                    response_format={"type": "json_object"},
+                    max_tokens=400,
+                ),
+                timeout=settings.llm_timeout_seconds,
+            )
+        except Exception as err_primaire:
+            # Si le compte Mistral renvoie 429 (code 1300 quota gratuit bloqué), bascule intelligente sur Gemini 2.5 Flash Lite
+            if fournisseur == "MISTRAL" and "429" in str(err_primaire):
+                modele_secours = "gemini/gemini-2.5-flash-lite"
+                logger.info(
+                    "Quota Mistral 429 détecté pour %s -> Relais automatique sur %s",
+                    agent.nom_affiche,
+                    modele_secours,
+                )
+                modele = modele_secours
+                fournisseur = "GEMINI (RELAIS MISTRAL)"
+                response = await asyncio.wait_for(
+                    litellm.acompletion(
+                        model=modele,
+                        messages=messages,
+                        temperature=temperature,
+                        response_format={"type": "json_object"},
+                        max_tokens=400,
+                    ),
+                    timeout=settings.llm_timeout_seconds,
+                )
+            else:
+                raise
+
         latence_ms = round((time.perf_counter() - debut) * 1000, 1)
 
         contenu_brut: str = response.choices[0].message.content or "{}"
@@ -296,7 +344,7 @@ async def interroger_agent_ia(
         )
         cout_appel = calculer_cout_reel_litellm(response, modele, tokens_utilises)
 
-        donnees = json.loads(contenu_brut)
+        donnees = json.loads(nettoyer_json_llm(contenu_brut))
         reponse_validee = ReponseAgentIA.model_validate(donnees)
 
         # Mise à jour de la mémoire stratégique interne (strictement côté serveur)

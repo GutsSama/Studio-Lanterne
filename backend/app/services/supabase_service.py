@@ -23,7 +23,7 @@ CATALOGUE_PERSONNALITES_DEFAUT: list[PersonnaliteIA] = [
             "Tu lances le débat, tu accuses vite les autres, tu te plains dès qu'on vote contre toi "
             "et tu râles quand les Citoyens font des erreurs."
         ),
-        modele_par_defaut="groq/llama-3.1-8b-instant",
+        modele_par_defaut="groq/openai/gpt-oss-20b",
         temperature=0.75,
     ),
     PersonnaliteIA(
@@ -47,7 +47,7 @@ CATALOGUE_PERSONNALITES_DEFAUT: list[PersonnaliteIA] = [
             "des jeux de mots et une fausse naïveté, mais sous tes airs innocents tu analyses "
             "finement le contexte et manipules les votes."
         ),
-        modele_par_defaut="gemini/gemini-1.5-flash",
+        modele_par_defaut="gemini/gemini-2.5-flash",
         temperature=0.85,
     ),
     PersonnaliteIA(
@@ -70,7 +70,7 @@ CATALOGUE_PERSONNALITES_DEFAUT: list[PersonnaliteIA] = [
             "Tu es Lucas (Le Suiveur Nerveux). Tu as peur de tout le monde, tu crois à un complot "
             "permanent des Créatures de la Nuit et tu rebondis nerveusement dès qu'un joueur hausse le ton."
         ),
-        modele_par_defaut="groq/llama-3.1-8b-instant",
+        modele_par_defaut="groq/qwen/qwen3.8-27b",
         temperature=0.80,
     ),
 ]
@@ -138,12 +138,20 @@ class DepotPartiesHybride:
             }
 
     def lister_personnalites(self) -> list[PersonnaliteIA]:
-        """Récupère les 5 personnalités IA depuis Supabase (ou le catalogue par défaut en fallback)."""
+        """Récupère les 5 personnalités IA depuis Supabase (ou le catalogue par défaut mis à jour)."""
         if self.client is not None:
             try:
                 res = self.client.table("personnalites_ia").select("*").execute()
                 if res.data and len(res.data) >= 5:
-                    return [PersonnaliteIA.model_validate(row) for row in res.data]
+                    # Vérifier que le seed en base est bien à jour (pas d'anciens modèles retirés)
+                    modeles = [r.get("modele_par_defaut", "") for r in res.data]
+                    if all(
+                        "/" in m
+                        and "gemini-1.5" not in m
+                        and "llama-3.1" not in m
+                        for m in modeles
+                    ):
+                        return [PersonnaliteIA.model_validate(row) for row in res.data]
             except Exception as exc:
                 logger.debug(
                     "Fallback sur le catalogue local de personnalités IA (%s)", exc
