@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from app.agents.orchestrator import interroger_agent_ia
+from app.agents.orchestrator import interroger_agent_ia, observabilite_llm
 from app.engine.fsm import MoteurPartieFSM
 from app.engine.rules import (
     ErreurRegleJeu,
@@ -125,6 +125,12 @@ def serialiser_partie_pour_humain(partie: EtatPartie) -> dict[str, Any]:
 async def verifier_connexion_bdd() -> dict[str, Any]:
     """Vérifie en direct la connexion à Supabase et la présence des tables."""
     return depot_parties.verifier_connexion_supabase()
+
+
+@router.get("/metrics/llm", tags=["observabilite"])
+async def obtenir_metriques_llm() -> dict[str, Any]:
+    """Retourne le tableau de bord complet LiteLLM : coûts USD, tokens, latence ms par modèle et par agent."""
+    return observabilite_llm.calculer_synthese()
 
 
 @router.get("/personnalites")
