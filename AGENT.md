@@ -11,7 +11,7 @@ Ce fichier définit les conventions, l'architecture technique, la stack technolo
 
 | Couche | Technologies | Responsabilités & Règles d'Implémentation |
 | :--- | :--- | :--- |
-| **Frontend** | **React**, **TypeScript**, **Tailwind CSS** *(généré/édité avec Lovable)* | Interface immersive, chat en temps réel (WebSockets), animations des cycles Jour/Nuit et des votes. **Typage TypeScript strict obligatoire** (aucun `any` implicite sur les états de jeu). |
+| **Frontend** | **React**, **TypeScript**, **Tailwind CSS** | Interface immersive, chat en temps réel (WebSockets), animations des cycles Jour/Nuit et des votes. **Typage TypeScript strict obligatoire** (aucun `any` implicite sur les états de jeu). |
 | **Backend** | **Python >= 3.11**, **FastAPI**, **Pydantic v2**, **Uvicorn**, **uv** | Moteur de règles déterministe, API REST & WebSockets temps réel, cloisonnement contextuel anti-triche et interrogation asynchrone (`asyncio`) des agents IA. |
 | **Base de Données & Auth** | **Supabase (PostgreSQL 17)**, **JWT**, **Row-Level Security (RLS)** | Authentification sécurisée, persistance des parties, statistiques joueurs, succès (*achievements*) et suivi des coûts/tokens. **Nomenclature SQL 100 % en français.** |
 | **Orchestration IA** | **LiteLLM** (`acompletion`) | Interface unifiée d'appel aux LLM, gestion des timeouts/fallbacks et **calcul/suivi natif des tokens et coûts** à chaque requête. |
@@ -104,3 +104,11 @@ uv run pytest -v
 ### Règles de Test (Pytest)
 * Toute modification des règles de jeu ([`rules.py`](backend/app/engine/rules.py)), de la machine à états ([`fsm.py`](backend/app/engine/fsm.py)), du cloisonnement contextuel ou du schéma JSON IA **doit** être accompagnée de tests unitaires dans [`backend/tests/`](backend/tests/) couvrant les cas nominaux et les cas limites (égalité de votes, immunités, potions de la sorcière, mémoire de la voyante, etc.).
 
+## 5. Configuration & Environnement IA (Antigravity / IDE)
+
+> **Note pour le développeur humain :** Ce fichier sert de contexte de base. Pour garantir des performances optimales sur des plateformes comme Antigravity Pro, Cursor ou Windsurf, suivez cette configuration :
+
+1. **Inclusion :** Chargez toujours ce fichier `AGENT.md` dans le contexte principal de la session.
+2. **Modèle recommandé :** Claude 3.5 Sonnet ou GPT-4o (privilégier les modèles avec une forte capacité de raisonnement sur le code et un respect strict des schémas JSON/Pydantic).
+3. **Prompt Système à configurer dans l'interface :**
+   *"Tu es l'Expert Frontend et UX/UI du projet 'Créatures de la Nuit vs IA'. Tes choix d'architecture doivent respecter à la lettre le fichier AGENT.md fourni en contexte. Tu interviens uniquement sur React, TypeScript et Tailwind CSS. Tu as l'interdiction d'utiliser des `any` implicites et tu dois calquer tes interfaces TypeScript sur les modèles Pydantic du backend."*
