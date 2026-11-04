@@ -1,0 +1,214 @@
+@import "tailwindcss";
+@import "@fontsource/press-start-2p";
+@import "@fontsource/vt323";
+
+@theme {
+  --font-pixel: "Press Start 2P", monospace;
+  --font-terminal: "VT323", monospace;
+
+  --color-encre: #140c1c;
+  --color-nuit-900: #0d0b1e;
+  --color-nuit-800: #1b1630;
+  --color-nuit-700: #2a2350;
+  --color-nuit-600: #3b3a7a;
+  --color-parchemin: #e8d5a8;
+  --color-parchemin-sombre: #c2a46e;
+  --color-lanterne: #f4b41b;
+  --color-lanterne-clair: #fff3b0;
+  --color-braise: #e06c2c;
+  --color-sang: #b4202a;
+  --color-mousse: #5a8a3a;
+  --color-os: #f2ead8;
+
+  --animate-flotter: flotter 2.4s steps(2, jump-none) infinite;
+  --animate-clignoter: clignoter 1s steps(1) infinite;
+  --animate-apparaitre: apparaitre 0.25s steps(4) both;
+}
+
+@keyframes flotter {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4%); }
+}
+
+@keyframes clignoter {
+  50% { opacity: 0; }
+}
+
+@keyframes apparaitre {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes bannierePhase {
+  0% { opacity: 0; transform: scale(1.4); }
+  15% { opacity: 1; transform: scale(1); }
+  80% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.95); }
+}
+
+@keyframes pointsAttente {
+  0%, 20% { opacity: 0.2; }
+  50% { opacity: 1; }
+  100% { opacity: 0.2; }
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-nuit-900);
+  color: var(--color-os);
+  font-family: var(--font-terminal);
+  font-size: 20px;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+}
+
+/* Rendu net des sprites */
+.pixelise {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* ─── Panneau pixel à coins crantés ─── */
+.panneau {
+  --bord: var(--color-encre);
+  --fond: var(--color-nuit-800);
+  --liseré: var(--color-nuit-600);
+  background: var(--fond);
+  box-shadow:
+    0 -4px 0 0 var(--bord),
+    0 4px 0 0 var(--bord),
+    -4px 0 0 0 var(--bord),
+    4px 0 0 0 var(--bord),
+    inset 0 4px 0 0 var(--liseré),
+    inset 4px 0 0 0 var(--liseré),
+    inset 0 -4px 0 0 color-mix(in srgb, var(--fond) 70%, black),
+    inset -4px 0 0 0 color-mix(in srgb, var(--fond) 70%, black);
+}
+
+.panneau-parchemin {
+  --fond: var(--color-parchemin);
+  --liseré: #f6e8c4;
+  color: var(--color-encre);
+}
+
+/* ─── Bouton pixel ─── */
+.bouton {
+  --fond: var(--color-lanterne);
+  --texte: var(--color-encre);
+  position: relative;
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  line-height: 1.4;
+  text-transform: uppercase;
+  color: var(--texte);
+  background: var(--fond);
+  padding: 10px 14px;
+  cursor: pointer;
+  box-shadow:
+    0 -3px 0 0 var(--color-encre),
+    0 3px 0 0 var(--color-encre),
+    -3px 0 0 0 var(--color-encre),
+    3px 0 0 0 var(--color-encre),
+    inset -3px -3px 0 0 color-mix(in srgb, var(--fond) 65%, black),
+    inset 3px 3px 0 0 color-mix(in srgb, var(--fond) 60%, white);
+  transition: transform 60ms steps(1);
+}
+
+.bouton:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.bouton:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow:
+    0 -3px 0 0 var(--color-encre),
+    0 3px 0 0 var(--color-encre),
+    -3px 0 0 0 var(--color-encre),
+    3px 0 0 0 var(--color-encre),
+    inset 3px 3px 0 0 color-mix(in srgb, var(--fond) 65%, black);
+}
+
+.bouton:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.8) brightness(0.7);
+}
+
+.bouton-sang { --fond: var(--color-sang); --texte: var(--color-os); }
+.bouton-nuit { --fond: var(--color-nuit-600); --texte: var(--color-os); }
+.bouton-mousse { --fond: var(--color-mousse); --texte: var(--color-os); }
+
+/* ─── Champ de saisie ─── */
+.champ {
+  font-family: var(--font-terminal);
+  font-size: 22px;
+  background: var(--color-nuit-900);
+  color: var(--color-os);
+  padding: 4px 10px;
+  outline: none;
+  box-shadow:
+    0 -3px 0 0 var(--color-encre),
+    0 3px 0 0 var(--color-encre),
+    -3px 0 0 0 var(--color-encre),
+    3px 0 0 0 var(--color-encre),
+    inset 3px 3px 0 0 #000;
+}
+
+.champ:focus {
+  box-shadow:
+    0 -3px 0 0 var(--color-lanterne),
+    0 3px 0 0 var(--color-lanterne),
+    -3px 0 0 0 var(--color-lanterne),
+    3px 0 0 0 var(--color-lanterne),
+    inset 3px 3px 0 0 #000;
+}
+
+/* ─── Bulle de dialogue ─── */
+.bulle {
+  position: relative;
+  background: var(--color-os);
+  color: var(--color-encre);
+  box-shadow:
+    0 -2px 0 0 var(--color-encre),
+    0 2px 0 0 var(--color-encre),
+    -2px 0 0 0 var(--color-encre),
+    2px 0 0 0 var(--color-encre);
+}
+
+.bulle::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -8px;
+  width: 6px;
+  height: 6px;
+  background: var(--color-os);
+  transform: translateX(-50%);
+  box-shadow: 2px 0 0 0 var(--color-encre), -2px 0 0 0 var(--color-encre), 0 2px 0 0 var(--color-encre);
+}
+
+/* Barre de défilement pixel */
+.defilement::-webkit-scrollbar { width: 10px; }
+.defilement::-webkit-scrollbar-track { background: var(--color-nuit-900); }
+.defilement::-webkit-scrollbar-thumb { background: var(--color-nuit-600); border: 2px solid var(--color-encre); }
+
+.banniere-phase {
+  animation: bannierePhase 2.6s steps(12) forwards;
+}
+
+.point-attente {
+  animation: pointsAttente 1.2s steps(3) infinite;
+}
+
+/* Scanlines discrètes façon CRT */
+.scanlines::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.08) 0 2px, transparent 2px 4px);
+}
+
