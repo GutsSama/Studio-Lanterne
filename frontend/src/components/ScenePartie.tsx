@@ -1,17 +1,19 @@
 import { useEffect, useState } from "react";
 import type { JoueurPublic, MessagePartie, UUID } from "../types/game";
-import { IMAGES_FEU, spriteFeu, spriteVillage } from "../pixel/decor";
 import { LIBELLES_CAUSE_MORT, prenom } from "../game/libelles";
-import { IconeRole, ImagePixel, SpritePersonnage } from "./Sprites";
+import { IconeRole, SpritePersonnage } from "./Sprites";
 
-/** Positions des 6 sièges autour du feu (en % de la scène, ancrées aux pieds). */
+/**
+ * Positions des 6 sièges autour de la place (en % de l'image 2752×1536) :
+ * - Disposés en arc de cercle autour du foyer central (50.15%, 71.2%)
+ */
 const SIEGES: ReadonlyArray<{ x: number; y: number }> = [
-  { x: 17, y: 93 },
-  { x: 24, y: 70 },
-  { x: 39, y: 63 },
-  { x: 61, y: 63 },
-  { x: 76, y: 70 },
-  { x: 83, y: 93 },
+  { x: 18, y: 77 },
+  { x: 29, y: 61 },
+  { x: 42, y: 55 },
+  { x: 58, y: 55 },
+  { x: 71, y: 61 },
+  { x: 82, y: 77 },
 ];
 
 interface Props {
@@ -27,15 +29,42 @@ interface Props {
   joueursQuiParlent: ReadonlySet<UUID>;
 }
 
-function Feu() {
-  const [image, setImage] = useState(0);
+/**
+ * Feu de camp animé :
+ * - Visible UNIQUEMENT la nuit (`opacity: nuit ? 1 : 0`)
+ * - Superposé au pixel près sur le cercle de pierres (left: 50.15%, top: 71.2%, width: 8.3%)
+ * - Animation ralentie à 450 ms par frame pour un crépitement doux et posé
+ */
+function FeuDeCamp({ nuit }: { nuit: boolean }) {
+  const [frame, setFrame] = useState(0);
+
   useEffect(() => {
-    const t = window.setInterval(() => setImage((i) => (i + 1) % IMAGES_FEU), 160);
+    if (!nuit) return;
+    const t = window.setInterval(() => setFrame((f) => (f + 1) % 4), 450);
     return () => window.clearInterval(t);
-  }, []);
+  }, [nuit]);
+
   return (
-    <div className="absolute" style={{ left: "50%", top: "82%", width: "9.4%", transform: "translate(-50%, -85%)" }}>
-      <ImagePixel src={spriteFeu(image)} alt="Feu de camp" className="w-full" />
+    <div
+      className="absolute pointer-events-none select-none transition-opacity duration-[1200ms]"
+      style={{
+        left: "50.15%",
+        top: "71.2%",
+        width: "8.3%",
+        aspectRatio: "180 / 261",
+        transform: "translate(-50%, -100%)",
+        zIndex: 55,
+        opacity: nuit ? 1 : 0, // Absent la journée, allumé la nuit
+      }}
+    >
+      <div
+        className="w-full h-full pixelise"
+        style={{
+          backgroundImage: "url(/sprites/feu_sheet.png)",
+          backgroundSize: "400% 100%",
+          backgroundPosition: `${frame * 33.333}% 0%`,
+        }}
+      />
     </div>
   );
 }
@@ -54,31 +83,46 @@ export function ScenePartie({
   const bulleVisible = useBulle(dernierMessage);
 
   return (
-    <div className="panneau relative w-full overflow-hidden" style={{ aspectRatio: "16 / 9" }}>
-      {/* Décor jour/nuit en fondu enchaîné */}
-      <ImagePixel src={spriteVillage(false)} alt="" className="absolute inset-0 h-full w-full" />
-      <ImagePixel
-        src={spriteVillage(true)}
-        alt=""
-        className="absolute inset-0 h-full w-full transition-opacity duration-[1800ms]"
+    <div
+      className="panneau relative w-full shrink-0 overflow-hidden isolate"
+      style={{ aspectRatio: "2752 / 1536" }}
+    >
+      {/* 1. Décor Jour (avec le foyer éteint et sa fumée légère) */}
+      <img
+        src="/sprites/villagejour.jpeg"
+        alt="Village Jour"
+        className="absolute inset-0 h-full w-full pixelise select-none"
+      />
+
+      {/* 2. Décor Nuit (sans flamme statique parasite derrière l'animation) */}
+      <img
+        src="/sprites/villagenuit_propre.jpeg"
+        alt="Village Nuit"
+        className="absolute inset-0 h-full w-full pixelise select-none transition-opacity duration-[1800ms]"
         style={{ opacity: nuit ? 1 : 0 }}
       />
-      {/* Halo du feu */}
+
+      {/* 3. Halo lumineux au sol (uniquement la nuit) */}
       <div
         className="pointer-events-none absolute inset-0 transition-opacity duration-[1800ms]"
         style={{
-          opacity: nuit ? 1 : 0.35,
-          background: "radial-gradient(ellipse 30% 26% at 50% 78%, rgba(244,180,27,0.35), rgba(224,108,44,0.12) 55%, transparent 75%)",
+          opacity: nuit ? 0.85 : 0,
+          background:
+            "radial-gradient(ellipse 34% 28% at 50.15% 68%, rgba(244,140,20,0.4), rgba(180,40,10,0.15) 50%, transparent 75%)",
         }}
       />
-      <Feu />
 
+      {/* 4. Feu de camp animé (uniquement la nuit, calé sur les pierres) */}
+      <FeuDeCamp nuit={nuit} />
+
+      {/* 5. Les 6 participants disposés sur la place */}
       {tries.map((j, i) => {
         const siege = SIEGES[i] ?? { x: 50, y: 50 };
         const ciblable = ciblesPossibles.has(j.id);
         const selectionne = cibleSelectionnee === j.id;
         const parle = bulleVisible && dernierMessage?.joueur_emetteur_id === j.id;
         const inspection = inspections[j.id];
+
         return (
           <button
             key={j.id}
@@ -89,7 +133,7 @@ export function ScenePartie({
             style={{
               left: `${siege.x}%`,
               top: `${siege.y}%`,
-              width: "13%",
+              width: "10%",
               transform: "translate(-50%, -100%)",
               zIndex: Math.round(siege.y),
             }}
@@ -97,7 +141,7 @@ export function ScenePartie({
             {/* Bulle de dialogue */}
             {parle && dernierMessage && (
               <div
-                className="bulle animate-apparaitre absolute bottom-full left-1/2 mb-3 -translate-x-1/2 w-[220%] px-2 py-1 text-left font-terminal text-[clamp(12px,1.25vw,18px)] leading-tight"
+                className="bulle animate-apparaitre absolute bottom-full left-1/2 mb-3 -translate-x-1/2 w-[220%] px-2 py-1 text-left font-terminal text-[clamp(12px,1.25vw,18px)] leading-tight shadow-md"
                 style={{ zIndex: 200 }}
               >
                 {dernierMessage.contenu.length > 110 ? `${dernierMessage.contenu.slice(0, 110)}…` : dernierMessage.contenu}
@@ -155,7 +199,6 @@ export function ScenePartie({
   );
 }
 
-/** La bulle reste visible 5 s après chaque nouveau message. */
 function useBulle(message: MessagePartie | null): boolean {
   const [visible, setVisible] = useState(false);
   useEffect(() => {

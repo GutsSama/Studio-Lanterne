@@ -1,5 +1,5 @@
 import type { CampPartie, JoueurPublic, PhasePartie, RolePersonnage } from "../types/game";
-import { APPARENCES_ARCHETYPE, APPARENCE_HUMAIN, apparencePourNom, type ApparencePersonnage } from "../pixel/personnages";
+import { DESIGNS_ARCHETYPE, DESIGN_HUMAIN, designPourNom, type DesignPersonnage } from "../pixel/personnages";
 
 export const LIBELLES_ROLE: Record<RolePersonnage, { nom: string; description: string }> = {
   citoyen: { nom: "Citoyen", description: "Aucun pouvoir nocturne. Démasque les Créatures par la logique." },
@@ -36,10 +36,10 @@ export function estPhaseNocturne(phase: PhasePartie): boolean {
   return phase === "nuit" || phase === "tour_alchimiste";
 }
 
-export function apparenceJoueur(j: JoueurPublic): ApparencePersonnage {
-  if (j.est_humain) return APPARENCE_HUMAIN;
-  if (j.archetype) return APPARENCES_ARCHETYPE[j.archetype];
-  return apparencePourNom(j.nom_affiche);
+export function designJoueur(j: JoueurPublic): DesignPersonnage {
+  if (j.est_humain) return DESIGN_HUMAIN;
+  if (j.archetype) return DESIGNS_ARCHETYPE[j.archetype];
+  return designPourNom(j.nom_affiche);
 }
 
 /** « Gérard le Râleur » → « Gérard ». */

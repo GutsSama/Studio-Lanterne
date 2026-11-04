@@ -1,8 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { ROLES_PERSONNAGE, type ArchetypeIA, type JoueurPublic, type RolePersonnage } from "../types/game";
 import { LIBELLES_ROLE } from "../game/libelles";
-import { spriteVillage } from "../pixel/decor";
-import { ImagePixel, SpritePersonnage } from "./Sprites";
+import { SpritePersonnage } from "./Sprites";
 
 const PRESENTATION: ReadonlyArray<{ archetype: ArchetypeIA; nom: string; trait: string }> = [
   { archetype: "mauvais_joueur", nom: "Gérard", trait: "Le Râleur" },
@@ -48,7 +47,11 @@ export function EcranTitre({ occupe, erreur, onCommencer }: Props) {
 
   return (
     <div className="scanlines relative flex min-h-full items-center justify-center overflow-hidden p-4">
-      <ImagePixel src={spriteVillage(true)} alt="" className="absolute inset-0 h-full w-full object-cover opacity-60" />
+      <img
+        src="/sprites/villagenuit.jpeg"
+        alt=""
+        className="absolute inset-0 h-full w-full object-cover pixelise select-none opacity-60"
+      />
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-nuit-900/40 to-nuit-900" />
 
       <form onSubmit={soumettre} className="relative z-10 flex w-full max-w-3xl flex-col items-center gap-6">

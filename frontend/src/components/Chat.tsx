@@ -39,7 +39,7 @@ function LigneMessage({ m, emetteur }: { m: MessagePartie; emetteur: JoueurPubli
   return (
     <div className={`animate-apparaitre my-1.5 flex items-end gap-2 ${estHumain ? "flex-row-reverse" : ""}`}>
       <div className="h-10 w-10 shrink-0 overflow-hidden bg-nuit-900">
-        {emetteur && <SpritePersonnage joueur={emetteur} tombeSiMort={false} className="h-full w-full animate-none!" />}
+        {emetteur && <SpritePersonnage joueur={emetteur} tombeSiMort={false} portrait className="h-full w-full" />}
       </div>
       <div
         className={`max-w-[80%] px-2 py-1 leading-tight ${

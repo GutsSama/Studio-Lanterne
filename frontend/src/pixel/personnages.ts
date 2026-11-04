@@ -1,376 +1,351 @@
 /**
- * Générateur de personnages chibi 32×32 en couches.
- * Chaque personnalité IA (par archétype) et le joueur humain ont une apparence fixe.
+ * Sprites de personnages haute-fidélité inspirés de examplePixel.png et examplepixel2.png :
+ * - Vue 3/4 RPG avec silhouette élancée et bottes détaillées
+ * - Traits de visage expressifs : regard (pupille, blanc d'œil), nez et bouche subtils
+ * - Volume de chevelure et mèches avec reflets en dégradé
+ * - Vêtements texturés : pourpoints, manteaux, ceinturons à boucle, revers de bottes
+ * - Respect des genres et identités :
+ *    - Gérard le Râleur : Homme d'âge mûr, barbe poivre et sel, manteau de cuir lourd
+ *    - Elena la Stratège : Femme jeune et noble, chevelure brune longue, corset pourpre et cape
+ *    - Bob le Rigolo : Homme farceur, mèche châtaine tombante, pourpoint bouffon chaleureux
+ *    - Sœur Béatrice la Mystique : Femme d'église, voile monastique drapé, robe bleue et chapelet
+ *    - Lucas le Paranoïaque : Homme jeune, silhouette fébrile, cheveux roux ébouriffés, col relevé
+ *    - Joueur Humain : Aventurier / Aventurière voyageur avec sac à dos, tunique et lanterne (comme les exemples)
  */
 import type { ArchetypeIA } from "../types/game";
 import { GrillePixel, PALETTE, cuire, hacher, niveauxDeGris, nuancer, type Couleur } from "./moteur";
 
-export type Coiffure = "courte" | "longue" | "chauve" | "herissee" | "chignon" | "aucune";
-export type Accessoire = "barbe" | "lunettes" | "bouffon" | "voile" | "capuche" | "lanterne" | "chapeau_alu";
-export type Humeur = "grognon" | "neutre" | "sourire" | "serein" | "inquiet";
+export const LARGEUR_SPRITE = 48;
+export const HAUTEUR_SPRITE = 64;
 
-export interface ApparencePersonnage {
+export interface DesignPersonnage {
+  sexe: "femme" | "homme";
   peau: Couleur;
+  peauOmbre: Couleur;
   cheveux: Couleur;
-  coiffure: Coiffure;
+  cheveuxReflet: Couleur;
+  cheveuxOmbre: Couleur;
   tunique: Couleur;
+  tuniqueOmbre: Couleur;
   pantalon: Couleur;
+  pantalonOmbre: Couleur;
   bottes: Couleur;
-  humeur: Humeur;
-  accessoires: Accessoire[];
-  /** Couleur du voile / de la capuche. */
-  tissu?: Couleur;
+  bottesRevers: Couleur;
+  accessoire?: "sac_a_dos" | "barbe" | "voile" | "chapeau_cloche" | "echarpe" | "chapelet";
+  couleurAccessoire?: Couleur;
 }
 
 const E = PALETTE.encre;
 
-// ─── Apparences de référence ────────────────────────────────────────────────
+// ─── Profils respectant strictement les genres et identités ─────────────────
 
-export const APPARENCES_ARCHETYPE: Record<ArchetypeIA, ApparencePersonnage> = {
-  // Gérard le Râleur
+export const DESIGNS_ARCHETYPE: Record<ArchetypeIA, DesignPersonnage> = {
+  // Gérard le Râleur (Homme mûr, barbe taillée, cuir robuste)
   mauvais_joueur: {
-    peau: "#e0a47a",
-    cheveux: "#8a8a9a",
-    coiffure: "chauve",
-    tunique: "#8a3b2a",
-    pantalon: "#4a3a2a",
-    bottes: "#2e2018",
-    humeur: "grognon",
-    accessoires: ["barbe"],
+    sexe: "homme",
+    peau: "#dfb49d",
+    peauOmbre: "#af7c63",
+    cheveux: "#716d7a",
+    cheveuxReflet: "#9f9bb0",
+    cheveuxOmbre: "#433f4c",
+    tunique: PALETTE.cuirMoyen,
+    tuniqueOmbre: PALETTE.cuirTresFonce,
+    pantalon: "#2b2a33",
+    pantalonOmbre: "#18171e",
+    bottes: PALETTE.cuirFonce,
+    bottesRevers: PALETTE.cuirClair,
+    accessoire: "barbe",
   },
-  // Elena la Stratège
+  // Elena la Stratège (Femme, chevelure sombre soyeuse, robe d'érudite pourpre)
   stratege: {
-    peau: "#f0c8a0",
-    cheveux: "#2b1d3a",
-    coiffure: "longue",
-    tunique: "#5b3f8c",
-    pantalon: "#2a2350",
-    bottes: "#1b1630",
-    humeur: "neutre",
-    accessoires: ["lunettes"],
+    sexe: "femme",
+    peau: PALETTE.peauClaire,
+    peauOmbre: PALETTE.peauClaireOmbre,
+    cheveux: "#281b24",
+    cheveuxReflet: "#563e50",
+    cheveuxOmbre: "#140c11",
+    tunique: PALETTE.pourpre,
+    tuniqueOmbre: PALETTE.pourpreOmbre,
+    pantalon: "#221929",
+    pantalonOmbre: "#120b18",
+    bottes: "#342231",
+    bottesRevers: "#5c3d56",
+    accessoire: "echarpe",
+    couleurAccessoire: "#8a4869",
   },
-  // Bob le Rigolo
+  // Bob le Rigolo (Homme bon vivant, pourpoint chaleureux, chevelure châtaine rebelle)
   drole: {
-    peau: "#d89a6a",
-    cheveux: "#6a3a1a",
-    coiffure: "aucune",
-    tunique: "#e07a2c",
-    pantalon: "#3b6a3a",
-    bottes: "#3a2418",
-    humeur: "sourire",
-    accessoires: ["bouffon"],
+    sexe: "homme",
+    peau: PALETTE.peauClaire,
+    peauOmbre: PALETTE.peauClaireOmbre,
+    cheveux: "#7c4a2a",
+    cheveuxReflet: "#aa6e45",
+    cheveuxOmbre: "#472713",
+    tunique: "#b85c38",
+    tuniqueOmbre: "#6c2f18",
+    pantalon: PALETTE.vertForet,
+    pantalonOmbre: PALETTE.vertForetOmbre,
+    bottes: PALETTE.cuirMoyen,
+    bottesRevers: PALETTE.cuirClair,
+    accessoire: "sac_a_dos",
   },
-  // Sœur Béatrice la Mystique
+  // Sœur Béatrice la Mystique (Femme pieuse, voile tombant sur les épaules, robe bleue)
   mystique: {
-    peau: "#f4dcc4",
-    cheveux: "#2a2350",
-    coiffure: "aucune",
-    tunique: "#3b3a7a",
-    pantalon: "#2a2350",
-    bottes: "#1b1630",
-    humeur: "serein",
-    accessoires: ["voile"],
-    tissu: "#24203f",
+    sexe: "femme",
+    peau: "#faeae0",
+    peauOmbre: "#d9b3a3",
+    cheveux: "#3d3245",
+    cheveuxReflet: "#685b73",
+    cheveuxOmbre: "#201824",
+    tunique: PALETTE.bleuNuit,
+    tuniqueOmbre: PALETTE.bleuNuitOmbre,
+    pantalon: "#1c222e",
+    pantalonOmbre: "#0f131a",
+    bottes: "#272e3b",
+    bottesRevers: PALETTE.os,
+    accessoire: "voile",
+    couleurAccessoire: "#e8dfd3",
   },
-  // Lucas le Paranoïaque
+  // Lucas le Paranoïaque (Homme jeune aux cheveux roux hirsutes, col protecteur relevé)
   paranoiaque: {
-    peau: "#e8b890",
-    cheveux: "#c96b2c",
-    coiffure: "herissee",
-    tunique: "#4a7a3a",
-    pantalon: "#5a4a3a",
-    bottes: "#2e2018",
-    humeur: "inquiet",
-    accessoires: ["chapeau_alu"],
+    sexe: "homme",
+    peau: PALETTE.peauClaire,
+    peauOmbre: PALETTE.peauClaireOmbre,
+    cheveux: "#b54e29",
+    cheveuxReflet: "#de7850",
+    cheveuxOmbre: "#702b12",
+    tunique: PALETTE.vertForet,
+    tuniqueOmbre: PALETTE.vertForetOmbre,
+    pantalon: PALETTE.cuirTresFonce,
+    pantalonOmbre: "#160c0a",
+    bottes: PALETTE.cuirMoyen,
+    bottesRevers: PALETTE.cuirClair,
+    accessoire: "echarpe",
+    couleurAccessoire: "#3d352b",
   },
 };
 
-export const APPARENCE_HUMAIN: ApparencePersonnage = {
-  peau: "#f0c090",
-  cheveux: "#5a3218",
-  coiffure: "courte",
-  tunique: "#2f5aa8",
-  pantalon: "#3a2e48",
-  bottes: "#2a1a14",
-  humeur: "neutre",
-  accessoires: ["capuche", "lanterne"],
-  tissu: "#7a2a3a",
+// Design du joueur humain : Voyageur avec sacoche et lanterne (comme les deux images d'exemple)
+export const DESIGN_HUMAIN: DesignPersonnage = {
+  sexe: "homme",
+  peau: PALETTE.peauClaire,
+  peauOmbre: PALETTE.peauClaireOmbre,
+  cheveux: "#69422a",
+  cheveuxReflet: "#956447",
+  cheveuxOmbre: "#3c2314",
+  tunique: PALETTE.lin,
+  tuniqueOmbre: PALETTE.linOmbre,
+  pantalon: "#2b2f3d",
+  pantalonOmbre: "#181a24",
+  bottes: PALETTE.cuirMoyen,
+  bottesRevers: PALETTE.cuirClair,
+  accessoire: "sac_a_dos",
 };
 
-/** Apparence de secours pour une personnalité inconnue (déterministe selon le nom). */
-export function apparencePourNom(nom: string): ApparencePersonnage {
+export function designPourNom(nom: string): DesignPersonnage {
   const h = hacher(nom);
-  const tuniques = ["#8a3b2a", "#2f7a6a", "#7a5a2a", "#5a3a7a", "#3a5a8a"];
-  const cheveux = ["#2b1d1a", "#c96b2c", "#e8c860", "#6a3a1a", "#8a8a9a"];
-  const coiffures: Coiffure[] = ["courte", "longue", "herissee", "chignon"];
-  const humeurs: Humeur[] = ["neutre", "sourire", "grognon", "serein"];
+  const peaux = [PALETTE.peauClaire, PALETTE.peauMoyenne, PALETTE.peauBrune];
+  const peauxOmbres = [PALETTE.peauClaireOmbre, PALETTE.peauOmbre, PALETTE.peauBruneOmbre];
+  const idxPeau = h % 3;
   return {
-    peau: ["#f0c8a0", "#e0a47a", "#c88a5a", "#8a5a3a"][h % 4] ?? "#f0c8a0",
-    cheveux: cheveux[(h >> 3) % cheveux.length] ?? "#2b1d1a",
-    coiffure: coiffures[(h >> 6) % coiffures.length] ?? "courte",
-    tunique: tuniques[(h >> 9) % tuniques.length] ?? "#8a3b2a",
-    pantalon: "#3a2e48",
-    bottes: "#2a1a14",
-    humeur: humeurs[(h >> 12) % humeurs.length] ?? "neutre",
-    accessoires: [],
+    sexe: h % 2 === 0 ? "femme" : "homme",
+    peau: peaux[idxPeau] ?? PALETTE.peauClaire,
+    peauOmbre: peauxOmbres[idxPeau] ?? PALETTE.peauClaireOmbre,
+    cheveux: ["#2d2420", "#5c3c2b", "#946342", "#281b24"][h % 4] ?? "#2d2420",
+    cheveuxReflet: ["#54453e", "#8c6049", "#be8d6b", "#4f3948"][h % 4] ?? "#54453e",
+    cheveuxOmbre: ["#16100d", "#362115", "#5c3922", "#130910"][h % 4] ?? "#16100d",
+    tunique: [PALETTE.lin, PALETTE.cuirMoyen, PALETTE.vertForet, PALETTE.bleuNuit][(h >> 2) % 4] ?? PALETTE.lin,
+    tuniqueOmbre: [PALETTE.linOmbre, PALETTE.cuirTresFonce, PALETTE.vertForetOmbre, PALETTE.bleuNuitOmbre][(h >> 2) % 4] ?? PALETTE.linOmbre,
+    pantalon: "#282631",
+    pantalonOmbre: "#14131a",
+    bottes: PALETTE.cuirMoyen,
+    bottesRevers: PALETTE.cuirClair,
+    accessoire: "sac_a_dos",
   };
 }
 
-// ─── Dessin ─────────────────────────────────────────────────────────────────
+// ─── MOTEUR DE DESSIN DU PERSONNAGE RPG 3/4 ─────────────────────────────────
 
-interface OptionsDessin {
-  yeuxFermes?: boolean;
-  fantome?: boolean;
-}
+export function dessinerPersonnageExemple(d: DesignPersonnage, o: { fantome?: boolean } = {}): GrillePixel {
+  const g = new GrillePixel(LARGEUR_SPRITE, HAUTEUR_SPRITE);
 
-function dessinerCorps(g: GrillePixel, a: ApparencePersonnage): void {
-  const tuniqueOmbre = nuancer(a.tunique, -0.3);
-  const tuniqueLumiere = nuancer(a.tunique, 0.18);
-
-  // Jambes + bottes
-  g.rect(12, 26, 3, 3, a.pantalon).rect(17, 26, 3, 3, nuancer(a.pantalon, -0.2));
-  g.rect(11, 28, 4, 2, a.bottes).rect(17, 28, 4, 2, a.bottes);
-  g.px(11, 28, nuancer(a.bottes, 0.25)).px(17, 28, nuancer(a.bottes, 0.25));
-
-  // Torse
-  g.rect(10, 18, 12, 9, a.tunique);
-  g.ligneV(11, 19, 25, tuniqueLumiere);
-  g.ligneV(21, 18, 26, tuniqueOmbre).ligneH(10, 21, 26, tuniqueOmbre);
-  // Col en V
-  g.points([[14, 18], [15, 19], [16, 19], [17, 18]], nuancer(a.peau, -0.1));
-  // Ceinture
-  g.ligneH(10, 21, 23, nuancer(a.tunique, -0.55));
-  g.px(15, 23, PALETTE.lanterne).px(16, 23, nuancer(PALETTE.lanterne, -0.3));
-
-  // Bras + mains
-  g.rect(8, 19, 2, 5, tuniqueLumiere).rect(22, 19, 2, 5, tuniqueOmbre);
-  g.rect(8, 24, 2, 2, a.peau).rect(22, 24, 2, 2, nuancer(a.peau, -0.2));
-
-  // Cou
-  g.rect(14, 17, 4, 1, nuancer(a.peau, -0.25));
-}
-
-function dessinerTete(g: GrillePixel, a: ApparencePersonnage, o: OptionsDessin): void {
-  const peauOmbre = nuancer(a.peau, -0.18);
-  g.rect(9, 6, 14, 11, a.peau);
-  // Coins arrondis
-  g.points([[9, 6], [22, 6], [9, 16], [22, 16]], null);
-  // Ombrage
-  g.ligneV(22, 7, 15, peauOmbre).ligneH(10, 21, 16, peauOmbre);
-  g.px(10, 7, nuancer(a.peau, 0.2)).px(11, 7, nuancer(a.peau, 0.2));
-  // Oreilles
-  g.rect(8, 11, 1, 2, a.peau).rect(23, 11, 1, 2, peauOmbre);
-
-  // Yeux
-  if (o.yeuxFermes) {
-    g.ligneH(12, 13, 12, E).ligneH(18, 19, 12, E);
-  } else {
-    g.rect(12, 11, 2, 2, E).rect(18, 11, 2, 2, E);
-    g.px(12, 11, "#ffffff").px(18, 11, "#ffffff");
+  // 1. SAC À DOS / BALUCHON VOYAGEUR (en arrière-plan à gauche, comme dans examplePixel.png)
+  if (d.accessoire === "sac_a_dos") {
+    g.rect(13, 20, 8, 16, PALETTE.cuirMoyen);
+    g.rect(12, 22, 9, 12, PALETTE.cuirClair);
+    g.rect(12, 26, 2, 7, PALETTE.cuirFonce);
+    g.ligneV(11, 22, 33, E).ligneH(12, 20, 19, E);
+    // Boucle du sac
+    g.px(17, 26, PALETTE.orClair);
   }
 
-  // Sourcils
-  const s = nuancer(a.cheveux, -0.2);
-  switch (a.humeur) {
-    case "grognon":
-      g.points([[11, 9], [12, 9], [13, 10], [20, 9], [19, 9], [18, 10]], s);
-      break;
-    case "inquiet":
-      g.points([[11, 10], [12, 9], [13, 9], [20, 10], [19, 9], [18, 9]], s);
-      // Cernes
-      g.points([[12, 13], [13, 13], [18, 13], [19, 13]], nuancer(a.peau, -0.3));
-      break;
-    case "serein":
-      break;
-    default:
-      g.ligneH(12, 13, 9, s).ligneH(18, 19, 9, s);
+  // 2. JAMBES ET BOTTES DE VOYAGEUR
+  // Jambe gauche (arrière)
+  g.rect(20, 37, 5, 10, d.pantalonOmbre);
+  // Revers de botte gauche
+  g.rect(19, 45, 6, 4, d.bottesRevers);
+  g.ligneH(19, 24, 48, E);
+  // Botte gauche
+  g.rect(19, 49, 6, 8, d.bottes);
+  g.rect(18, 55, 6, 3, nuancer(d.bottes, -0.2));
+  g.px(18, 54, nuancer(d.bottes, 0.2)); // Reflet sur le bout
+
+  // Jambe droite (avant, plus en avant comme dans l'exemple 2)
+  g.rect(26, 37, 6, 9, d.pantalon);
+  g.ligneV(26, 38, 45, nuancer(d.pantalon, 0.2));
+  // Revers de botte droite
+  g.rect(25, 45, 7, 4, d.bottesRevers);
+  g.px(26, 46, nuancer(d.bottesRevers, 0.25));
+  g.ligneH(25, 31, 48, E);
+  // Botte droite
+  g.rect(26, 49, 7, 8, d.bottes);
+  g.rect(27, 54, 8, 4, nuancer(d.bottes, -0.15));
+  g.ligneH(28, 33, 53, nuancer(d.bottes, 0.2)); // Reflet d'arête sur le cuir
+
+  // 3. TUNIQUE / BUSTE ET CEINTURON
+  // Corps
+  g.rect(19, 21, 13, 17, d.tunique);
+  // Éclairage de volume sur le devant du torse
+  g.rect(23, 22, 7, 13, nuancer(d.tunique, 0.15));
+  g.ligneV(19, 22, 36, d.tuniqueOmbre);
+  // Col en V ouvert dévoilant le cou
+  g.rect(23, 20, 5, 4, d.peau);
+  g.points([[24, 23], [25, 23]], d.peauOmbre);
+
+  // Ceinturon en cuir avec pendant & boucle dorée
+  g.rect(18, 33, 14, 3, PALETTE.cuirFonce);
+  g.rect(25, 33, 3, 3, PALETTE.orClair);
+  g.px(26, 34, E);
+  // Lanière qui pend
+  g.rect(26, 36, 2, 6, PALETTE.cuirMoyen);
+
+  // Bas de la tunique fendu (style médiéval)
+  g.rect(19, 36, 6, 4, d.tuniqueOmbre);
+  g.rect(28, 36, 5, 4, d.tunique);
+
+  // Bras & manche
+  g.rect(16, 23, 5, 10, d.tuniqueOmbre);
+  g.rect(18, 31, 4, 3, d.peauOmbre); // Poignet
+  g.rect(18, 33, 5, 4, d.peau); // Main au repos sur la hanche
+
+  // 4. VOILE MONASTIQUE (pour Béatrice)
+  if (d.accessoire === "voile") {
+    const vc = d.couleurAccessoire ?? PALETTE.os;
+    g.rect(18, 12, 16, 22, vc);
+    g.rect(17, 16, 4, 18, nuancer(vc, -0.2));
+    g.rect(30, 16, 4, 18, nuancer(vc, -0.2));
+    g.ligneH(20, 29, 13, nuancer(vc, 0.15));
   }
 
-  // Joues
-  if (a.humeur === "sourire" || a.humeur === "serein") {
-    g.px(11, 14, "#e8707a").px(20, 14, "#e8707a");
+  // 5. TÊTE & VISAGE RPG 3/4 EXPRESSIF (Inspiré fidèlement des exemples)
+  const cx = 24, cy = 9;
+
+  // Joue et mâchoire
+  g.rect(cx - 3, cy + 4, 11, 8, d.peau);
+  g.rect(cx - 1, cy + 7, 8, 6, d.peau);
+  // Nez en relief
+  g.px(cx + 6, cy + 8, d.peauOmbre);
+  g.px(cx + 7, cy + 8, d.peau);
+
+  // Yeux expressifs (blanc d'œil, pupille sombre et reflet comme dans les 2 images)
+  // Œil droit (visible de face-trois-quarts)
+  g.rect(cx + 1, cy + 5, 4, 3, "#ffffff"); // Blanc
+  g.rect(cx + 2, cy + 5, 2, 3, E); // Iris/pupille
+  g.px(cx + 3, cy + 5, "#ffffff"); // Reflet pétillant
+  g.ligneH(cx + 1, cx + 4, cy + 4, E); // Paupière supérieure
+
+  // Œil gauche (partiellement caché par la perspective)
+  g.rect(cx - 2, cy + 5, 2, 3, E);
+  g.px(cx - 2, cy + 5, "#ffffff");
+  g.px(cx - 2, cy + 4, E);
+
+  // Bouche fine & discrète
+  g.ligneH(cx + 2, cx + 4, cy + 11, d.peauOmbre);
+
+  // 6. BARBE OU ACCESSION FACIALE
+  if (d.accessoire === "barbe") {
+    g.rect(cx - 2, cy + 8, 9, 7, d.cheveux);
+    g.rect(cx, cy + 12, 6, 4, d.cheveuxOmbre);
+    g.ligneH(cx + 1, cx + 5, cy + 10, d.cheveuxReflet);
   }
 
-  // Bouche
-  const bouche = nuancer(a.peau, -0.55);
-  switch (a.humeur) {
-    case "sourire":
-      g.points([[14, 14], [15, 15], [16, 15], [17, 14]], bouche);
-      break;
-    case "grognon":
-      g.points([[14, 15], [15, 14], [16, 14], [17, 15]], bouche);
-      break;
-    case "serein":
-      g.ligneH(15, 16, 14, nuancer(a.peau, -0.35));
-      break;
-    case "inquiet":
-      g.rect(15, 14, 2, 2, bouche);
-      break;
-    default:
-      g.ligneH(15, 16, 15, bouche);
+  // Écharpe (pour Elena ou Lucas)
+  if (d.accessoire === "echarpe") {
+    const col = d.couleurAccessoire ?? PALETTE.pourpre;
+    g.rect(cx - 4, cy + 11, 14, 4, col);
+    g.ligneH(cx - 2, cx + 8, cy + 11, nuancer(col, 0.3));
+    g.rect(cx + 5, cy + 13, 3, 7, nuancer(col, -0.2));
   }
-}
 
-function dessinerCoiffure(g: GrillePixel, a: ApparencePersonnage): void {
-  const c = a.cheveux;
-  const lumiere = nuancer(c, 0.3);
-  const ombre = nuancer(c, -0.3);
-
-  const base = () => {
-    g.rect(10, 4, 12, 2, c).rect(9, 5, 14, 3, c);
-    g.rect(9, 8, 2, 3, c).rect(21, 8, 2, 3, ombre);
-    g.points([[12, 8], [13, 8], [16, 8], [19, 8]], c);
-    g.ligneH(12, 15, 5, lumiere);
-  };
-
-  switch (a.coiffure) {
-    case "courte":
-      base();
-      break;
-    case "longue":
-      base();
-      g.rect(8, 8, 2, 10, c).rect(22, 8, 2, 10, ombre);
-      g.px(8, 18, ombre).px(23, 18, ombre);
-      break;
-    case "chauve":
-      g.rect(8, 9, 2, 4, c).rect(22, 9, 2, 4, ombre);
-      g.px(13, 7, nuancer(a.peau, 0.35)).px(14, 7, nuancer(a.peau, 0.35));
-      break;
-    case "herissee":
-      base();
-      for (let x = 9; x <= 21; x += 3) {
-        g.px(x, 3, c).px(x + 1, 3, c).px(x, 2, c);
-      }
-      g.px(10, 2, lumiere).px(16, 2, lumiere);
-      break;
-    case "chignon":
-      base();
-      g.ellipse(16, 2, 2, 1.5, c).px(15, 1, lumiere);
-      break;
-    case "aucune":
-      break;
-  }
-}
-
-function dessinerAccessoires(g: GrillePixel, a: ApparencePersonnage): void {
-  for (const acc of a.accessoires) {
-    switch (acc) {
-      case "barbe": {
-        const b = a.cheveux;
-        g.ligneH(13, 18, 13, b);
-        g.rect(10, 15, 12, 3, b).rect(11, 18, 10, 1, b).rect(13, 19, 6, 1, nuancer(b, -0.2));
-        g.ligneV(10, 13, 14, b).ligneV(21, 13, 14, b);
-        g.ligneH(15, 16, 14, nuancer(a.peau, -0.55));
-        g.px(12, 16, nuancer(b, 0.3)).px(14, 17, nuancer(b, 0.3));
-        break;
-      }
-      case "lunettes": {
-        const or = "#d8b04a";
-        for (const x0 of [11, 17]) {
-          g.ligneH(x0, x0 + 3, 10, or).ligneH(x0, x0 + 3, 13, or);
-          g.ligneV(x0, 10, 13, or).ligneV(x0 + 3, 10, 13, or);
-        }
-        g.ligneH(15, 16, 11, or);
-        break;
-      }
-      case "bouffon": {
-        const rouge = "#c83a3a";
-        const vert = "#3a8a4a";
-        g.rect(9, 3, 7, 4, rouge).rect(16, 3, 7, 4, vert);
-        // Pointes
-        g.points([[8, 3], [7, 2], [6, 1], [8, 4], [7, 3]], rouge);
-        g.points([[23, 3], [24, 2], [25, 1], [23, 4], [24, 3]], vert);
-        g.px(5, 0, PALETTE.lanterne).px(26, 0, PALETTE.lanterne);
-        g.px(5, 1, PALETTE.lanterne).px(26, 1, PALETTE.lanterne);
-        // Bandeau
-        g.ligneH(9, 22, 7, PALETTE.lanterne);
-        g.px(12, 4, nuancer(rouge, 0.3)).px(18, 4, nuancer(vert, 0.3));
-        break;
-      }
-      case "voile": {
-        const t = a.tissu ?? PALETTE.nuit700;
-        const tOmbre = nuancer(t, -0.3);
-        g.rect(9, 2, 14, 5, t).rect(8, 4, 1, 3, t).rect(23, 4, 1, 3, tOmbre);
-        g.rect(7, 6, 3, 13, t).rect(22, 6, 3, 13, tOmbre);
-        g.rect(6, 12, 1, 8, t).rect(25, 12, 1, 8, tOmbre);
-        g.ligneH(10, 21, 7, PALETTE.os);
-        g.ligneH(11, 14, 3, nuancer(t, 0.25));
-        // Croix
-        g.points([[16, 20], [15, 21], [16, 21], [17, 21], [16, 22]], PALETTE.lanterne);
-        break;
-      }
-      case "capuche": {
-        const t = a.tissu ?? "#7a2a3a";
-        const tOmbre = nuancer(t, -0.3);
-        g.rect(9, 3, 14, 3, t).rect(8, 5, 2, 12, t).rect(22, 5, 2, 12, tOmbre);
-        g.rect(7, 16, 3, 4, t).rect(22, 16, 3, 4, tOmbre);
-        g.px(9, 3, null).px(22, 3, null);
-        g.ligneH(11, 15, 3, nuancer(t, 0.25));
-        // Mèche visible
-        g.points([[11, 6], [12, 6], [13, 7], [18, 6], [19, 6]], a.cheveux);
-        break;
-      }
-      case "lanterne": {
-        g.px(25, 20, E).px(25, 21, "#8a7a5a");
-        g.rect(24, 22, 3, 1, "#5a4a3a").rect(24, 26, 3, 1, "#5a4a3a");
-        g.rect(24, 23, 3, 3, PALETTE.lanterne).px(25, 24, PALETTE.lanterneClair);
-        break;
-      }
-      case "chapeau_alu": {
-        const alu = "#c8cad8";
-        const aluOmbre = "#8a8ca0";
-        for (let j = 0; j < 6; j++) {
-          g.ligneH(16 - j - 1, 16 + j, j, j % 2 === 0 ? alu : aluOmbre);
-        }
-        g.ligneH(9, 22, 6, aluOmbre);
-        g.px(15, 1, "#ffffff").px(13, 3, "#ffffff");
-        break;
-      }
+  // 7. CHEVELURE RPG VOLUMINEUSE
+  if (d.accessoire !== "voile") {
+    if (d.sexe === "femme") {
+      // Chevelure féminine longue, mèches souples tombant sur l'épaule
+      g.rect(cx - 6, cy - 2, 15, 6, d.cheveux);
+      g.rect(cx - 7, cy + 2, 6, 17, d.cheveux);
+      g.rect(cx - 5, cy + 14, 5, 10, d.cheveuxOmbre);
+      // Mèche avant droite encadrant le visage
+      g.rect(cx + 5, cy + 1, 4, 11, d.cheveux);
+      g.px(cx + 7, cy + 11, d.cheveuxOmbre);
+      // Reflets lumineux sur le sommet de la tête
+      g.ligneH(cx - 3, cx + 6, cy - 1, d.cheveuxReflet);
+      g.points([[cx - 2, cy], [cx + 1, cy], [cx + 3, cy]], d.cheveuxReflet);
+    } else {
+      // Chevelure masculine avec mèches comme examplePixel.png et examplepixel2.png
+      g.rect(cx - 5, cy - 2, 14, 6, d.cheveux);
+      g.rect(cx - 7, cy + 2, 5, 11, d.cheveux);
+      // Mèches tombantes sur le front
+      g.points([[cx - 2, cy + 3], [cx, cy + 4], [cx + 4, cy + 3], [cx + 6, cy + 2]], d.cheveux);
+      g.points([[cx, cy + 3], [cx + 5, cy + 3]], d.cheveuxOmbre);
+      // Volume arrière
+      g.rect(cx - 7, cy + 6, 4, 6, d.cheveuxOmbre);
+      // Reflets
+      g.ligneH(cx - 3, cx + 4, cy - 1, d.cheveuxReflet);
+      g.points([[cx - 2, cy], [cx + 2, cy]], d.cheveuxReflet);
     }
   }
-}
 
-export function dessinerPersonnage(a: ApparencePersonnage, o: OptionsDessin = {}): GrillePixel {
-  const g = new GrillePixel(32, 32);
-  dessinerCorps(g, a);
-  dessinerTete(g, a, o);
-  dessinerCoiffure(g, a);
-  dessinerAccessoires(g, a);
+  // 8. CONTOUR NOIR RPG DÉLICAT
   g.contour(E);
+
+  // 9. FANTÔME OU OMBRE PORTÉE AU SOL
   if (o.fantome) {
     g.transformer((c) => niveauxDeGris(c));
   } else {
-    // Ombre portée sous les pieds
-    g.sousCouche((calque) => calque.ellipse(16, 30.5, 7, 1.2, "rgba(10,6,20,0.45)"));
+    // Ombre elliptique douce sous les pieds
+    g.sousCouche((calque) => {
+      calque.ellipse(25, 59, 12, 2.5, "rgba(26,20,27,0.75)");
+      calque.ellipse(25, 59, 15, 3.5, "rgba(26,20,27,0.25)");
+    });
   }
+
   return g;
 }
 
-export function spritePersonnage(cle: string, a: ApparencePersonnage, o: OptionsDessin = {}): string {
-  return cuire(`perso:${cle}:${o.yeuxFermes ? 1 : 0}:${o.fantome ? 1 : 0}`, () => dessinerPersonnage(a, o));
+export function spritePersonnageRpg(cle: string, d: DesignPersonnage, o: { fantome?: boolean } = {}): string {
+  return cuire(`perso_rpg:${cle}:${o.fantome ? 1 : 0}`, () => dessinerPersonnageExemple(d, o));
 }
 
-// ─── Pierre tombale ─────────────────────────────────────────────────────────
+// ─── STÈLE GOTHIQUE ─────────────────────────────────────────────────────────
 
-export function spriteTombe(): string {
-  return cuire("tombe", () => {
-    const g = new GrillePixel(32, 32);
-    const p = PALETTE.pierre;
-    g.ellipse(16, 13, 7, 6, p).rect(9, 13, 15, 14, p);
-    g.ligneV(22, 10, 26, nuancer(p, -0.3)).ligneV(23, 13, 26, nuancer(p, -0.3));
-    g.ligneV(10, 11, 25, nuancer(p, 0.25));
+export function spriteTombeRpg(): string {
+  return cuire("tombe_rpg", () => {
+    const g = new GrillePixel(LARGEUR_SPRITE, HAUTEUR_SPRITE);
+    const p = "#686470";
+    const cx = 24;
+
+    g.rect(cx - 7, 26, 15, 31, p);
+    g.points([[cx - 6, 25], [cx - 5, 24], [cx + 4, 25], [cx + 3, 24]], p);
+    g.ligneV(cx - 6, 26, 56, nuancer(p, 0.35));
+    g.rect(cx + 3, 26, 4, 31, E);
+
     // Croix gravée
-    g.ligneV(16, 11, 21, nuancer(p, -0.45)).ligneH(13, 19, 14, nuancer(p, -0.45));
-    // Fissure + mousse
-    g.points([[19, 22], [20, 23], [19, 24]], nuancer(p, -0.5));
-    g.points([[9, 25], [10, 25], [10, 24], [22, 25], [23, 24]], PALETTE.mousse);
+    g.ligneV(cx, 30, 42, E).ligneH(cx - 4, cx + 4, 34, E);
+    // Mousses végétales
+    g.points([[cx - 6, 52], [cx - 5, 53], [cx + 2, 54], [cx + 3, 53]], PALETTE.vertForet);
+
     g.contour(E);
-    // Terre + herbe
-    g.sousCouche((c) => {
-      c.ellipse(16, 28.5, 11, 2, "#3a2a20");
-      c.points([[5, 27], [6, 26], [26, 27], [27, 26], [8, 28], [24, 28]], PALETTE.mousse);
-    });
+    g.sousCouche((c) => c.ellipse(cx, 58, 14, 3, "rgba(20,15,22,0.6)"));
     return g;
   });
 }
-

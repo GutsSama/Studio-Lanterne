@@ -87,7 +87,7 @@ export function ListeJoueurs({ joueurs }: { joueurs: JoueurPublic[] }) {
         .map((j) => (
           <div key={j.id} className={`flex items-center gap-2 ${j.est_vivant ? "" : "opacity-45"}`}>
             <div className="h-8 w-8 shrink-0 bg-nuit-900">
-              <SpritePersonnage joueur={j} tombeSiMort={false} className="h-full w-full animate-none!" />
+              <SpritePersonnage joueur={j} tombeSiMort={false} portrait className="h-full w-full" />
             </div>
             <div className="min-w-0 flex-1 truncate leading-none">
               <div className={j.est_vivant ? "" : "line-through"}>{j.nom_affiche}</div>
@@ -125,7 +125,7 @@ export function BannierePhase({ phase, tour }: { phase: PhasePartie; tour: numbe
 
   if (!affichee) return null;
   return (
-    <div key={affichee.cle} className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center">
+    <div key={affichee.cle} className="pointer-events-none fixed inset-0 z-9999 flex items-center justify-center">
       <div className="banniere-phase panneau px-10 py-6 text-center">
         <div className="font-pixel text-[clamp(20px,4vw,44px)] text-lanterne drop-shadow-[4px_4px_0_#140c1c]">
           {affichee.texte}
@@ -154,8 +154,8 @@ export function FinDePartie({
   const victoire = camp === campHumain;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-encre/80 p-4">
-      <div className="panneau animate-apparaitre flex w-full max-w-2xl flex-col items-center gap-5 p-8 text-center">
+    <div className="fixed inset-0 z-9999 flex items-center justify-center bg-encre/85 backdrop-blur-xs p-4">
+      <div className="panneau animate-apparaitre flex w-full max-w-2xl flex-col items-center gap-5 p-8 text-center shadow-2xl">
         <div className={`font-pixel text-[clamp(18px,3vw,30px)] ${victoire ? "text-lanterne" : "text-sang"}`}>
           {victoire ? "Victoire !" : "Défaite..."}
         </div>

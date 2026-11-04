@@ -6,20 +6,51 @@
 export type Couleur = string;
 
 export const PALETTE = {
-  encre: "#140c1c",
-  nuit900: "#0d0b1e",
-  nuit800: "#1b1630",
-  nuit700: "#2a2350",
-  nuit600: "#3b3a7a",
-  parchemin: "#e8d5a8",
-  parcheminSombre: "#c2a46e",
-  lanterne: "#f4b41b",
-  lanterneClair: "#fff3b0",
-  braise: "#e06c2c",
-  sang: "#b4202a",
-  mousse: "#5a8a3a",
-  os: "#f2ead8",
-  pierre: "#7a7590",
+  // Encrage et contours noirs chauds (comme dans les exemples)
+  encre: "#1a141b",
+  encreOmbre: "#100914",
+  
+  // Teintes peaux & visages RPG
+  peauClaire: "#f6ceba",
+  peauClaireOmbre: "#d9a18b",
+  peauMoyenne: "#e2b298",
+  peauOmbre: "#b78079",
+  peauBrune: "#ad7658",
+  peauBruneOmbre: "#794c35",
+  
+  // Tissus & cuirs chauds
+  lin: "#ded5c3",
+  linOmbre: "#9c8f7d",
+  cuirClair: "#9a6b46",
+  cuirMoyen: "#6c4533",
+  cuirFonce: "#442721",
+  cuirTresFonce: "#291816",
+  
+  // Tissus colorés (robes, capes, pourpoints)
+  pourpre: "#5c324c",
+  pourpreOmbre: "#361b2c",
+  bleuNuit: "#2e3b52",
+  bleuNuitOmbre: "#192231",
+  vertForet: "#3a4c33",
+  vertForetOmbre: "#212d1c",
+  bordeaux: "#7c222b",
+  bordeauxOmbre: "#491219",
+  
+  // Métaux, armes & armures
+  acierClair: "#b8c4d2",
+  acier: "#738294",
+  acierOmbre: "#414c5c",
+  orClair: "#f2cf6b",
+  or: "#be943a",
+  orOmbre: "#694f1c",
+
+  // Éléments d'ambiance
+  parchemin: "#e4d3b4",
+  lanterne: "#e89a17",
+  lanterneClair: "#fff0aa",
+  braise: "#bd4a17",
+  sang: "#9a1824",
+  os: "#f0e7d8",
 } as const;
 
 // ─── Couleurs ───────────────────────────────────────────────────────────────
@@ -34,16 +65,13 @@ function rgbVersHex(r: number, g: number, b: number): string {
   return `#${c(r)}${c(g)}${c(b)}`;
 }
 
-/** Éclaircit (montant > 0) ou assombrit (montant < 0) avec un léger décalage de teinte façon pixel art. */
 export function nuancer(hex: string, montant: number): string {
   const [r, g, b] = hexVersRgb(hex);
   if (montant >= 0) {
-    // Les lumières tirent vers le jaune chaud
-    return rgbVersHex(r + (255 - r) * montant, g + (245 - g) * montant, b + (200 - b) * montant * 0.8);
+    return rgbVersHex(r + (255 - r) * montant, g + (245 - g) * montant * 0.95, b + (220 - b) * montant * 0.75);
   }
   const m = -montant;
-  // Les ombres tirent vers le violet
-  return rgbVersHex(r * (1 - m) + 30 * m * 0.3, g * (1 - m), b * (1 - m) + 60 * m * 0.4);
+  return rgbVersHex(r * (1 - m) + 20 * m * 0.3, g * (1 - m) + 12 * m * 0.2, b * (1 - m) + 24 * m * 0.4);
 }
 
 export function melanger(a: string, b: string, t: number): string {
@@ -55,7 +83,7 @@ export function melanger(a: string, b: string, t: number): string {
 export function niveauxDeGris(hex: string): string {
   const [r, g, b] = hexVersRgb(hex);
   const l = r * 0.3 + g * 0.59 + b * 0.11;
-  return rgbVersHex(l * 0.9 + 20, l * 0.9 + 20, l + 30);
+  return rgbVersHex(l * 0.75 + 15, l * 0.75 + 15, l * 0.85 + 25);
 }
 
 // ─── Générateur pseudo-aléatoire déterministe ──────────────────────────────
@@ -125,7 +153,6 @@ export class GrillePixel {
     return this;
   }
 
-  /** Ligne de Bresenham. */
   ligne(x0: number, y0: number, x1: number, y1: number, c: Couleur | null): this {
     const dx = Math.abs(x1 - x0);
     const dy = -Math.abs(y1 - y0);
@@ -161,7 +188,6 @@ export class GrillePixel {
     return this;
   }
 
-  /** Applique une fonction de couleur sur toutes les cellules remplies. */
   transformer(fn: (c: Couleur, x: number, y: number) => Couleur | null): this {
     for (let y = 0; y < this.hauteur; y++) {
       for (let x = 0; x < this.largeur; x++) {
@@ -172,7 +198,6 @@ export class GrillePixel {
     return this;
   }
 
-  /** Contour automatique (4-voisinage) autour de toutes les cellules remplies. */
   contour(c: Couleur): this {
     const aPeindre: [number, number][] = [];
     for (let y = 0; y < this.hauteur; y++) {
@@ -191,7 +216,6 @@ export class GrillePixel {
     return this.points(aPeindre, c);
   }
 
-  /** Remplit uniquement les cellules vides (utile pour les ombres portées). */
   sousCouche(dessin: (g: GrillePixel) => void): this {
     const calque = new GrillePixel(this.largeur, this.hauteur);
     dessin(calque);
@@ -204,7 +228,6 @@ export class GrillePixel {
     return this;
   }
 
-  /** Dessine une carte ASCII : chaque caractère est une clé de palette ('.' = vide). */
   ascii(x0: number, y0: number, lignes: readonly string[], palette: Readonly<Record<string, Couleur>>): this {
     lignes.forEach((ligne, j) => {
       [...ligne].forEach((ch, i) => {
@@ -248,4 +271,3 @@ export function cuire(cle: string, dessin: () => GrillePixel): string {
   cache.set(cle, url);
   return url;
 }
-
