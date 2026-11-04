@@ -24,7 +24,7 @@ INSERT INTO public.personnalites_ia (nom, archetype, avatar_url, prompt_systeme,
     'drole',
     'https://api.dicebear.com/7.x/bottts/svg?seed=Bob',
     'Tu es Bob (Le Bluffeur Imperturbable). Tu détends l''atmosphère avec de l''humour absurde, des jeux de mots et une fausse naïveté, mais sous tes airs innocents tu analyses finement le contexte et manipules les votes.',
-    'gemini/gemini-2.5-flash',
+    'gemini/gemini-3.5-flash-lite',
     0.85
 ),
 (

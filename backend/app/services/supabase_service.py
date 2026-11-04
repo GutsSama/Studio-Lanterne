@@ -47,7 +47,7 @@ CATALOGUE_PERSONNALITES_DEFAUT: list[PersonnaliteIA] = [
             "des jeux de mots et une fausse naïveté, mais sous tes airs innocents tu analyses "
             "finement le contexte et manipules les votes."
         ),
-        modele_par_defaut="gemini/gemma-4-26b-a4b-it",
+        modele_par_defaut="gemini/gemini-3.5-flash-lite",
         temperature=0.85,
     ),
     PersonnaliteIA(
@@ -143,12 +143,13 @@ class DepotPartiesHybride:
             try:
                 res = self.client.table("personnalites_ia").select("*").execute()
                 if res.data and len(res.data) >= 5:
-                    # Vérifier que le seed en base est bien à jour (pas d'anciens modèles retirés)
+                    # Vérifier que le seed en base est bien à jour (pas d'anciens modèles retirés ou lents)
                     modeles = [r.get("modele_par_defaut", "") for r in res.data]
                     if all(
                         "/" in m
                         and "gemini-1.5" not in m
                         and "gemini-2.5" not in m
+                        and "gemma" not in m
                         and "llama-3.1" not in m
                         for m in modeles
                     ):

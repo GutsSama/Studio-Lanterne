@@ -358,78 +358,57 @@ async def interroger_agent_ia(
 
     try:
         try:
-            # Les modèles Gemma sur Google AI Studio ne supportent pas le rôle 'system' séparé (erreur 500)
-            messages_effectifs = (
-                [
-                    {
-                        "role": "user",
-                        "content": f"{messages[0]['content']}\n\n{messages[1]['content']}",
-                    }
-                ]
-                if "gemma" in modele and len(messages) == 2
-                else messages
-            )
-            kwargs_extra = (
-                {"response_format": {"type": "json_object"}}
-                if "gemma" not in modele
-                else {}
-            )
             response: Any = await asyncio.wait_for(
                 litellm.acompletion(
                     model=modele,
-                    messages=messages_effectifs,
+                    messages=messages,
                     temperature=temperature,
+                    response_format={"type": "json_object"},
                     max_tokens=1024,
-                    **kwargs_extra,
                 ),
-                timeout=settings.llm_timeout_seconds,
+                timeout=4.5,
             )
         except Exception as err_primaire:
-            # Si le compte Mistral (429), ou un modèle Gemini (404/500) est indisponible,
-            # bascule automatique sur un modèle Groq actif du compte (qwen/qwen3.8-27b ou openai/gpt-oss-120b)
-            if any(
-                code in str(err_primaire)
-                for code in ("429", "404", "500", "NotFound", "Internal")
-            ):
-                modele_secours = (
-                    "groq/qwen/qwen3.8-27b"
-                    if "gemma" in modele
-                    else "groq/openai/gpt-oss-120b"
+            # Si le compte Mistral (429) ou un modèle primaire timeout / échoue,
+            # bascule automatique sur gemini/gemini-3.5-flash-lite ou groq/openai/gpt-oss-120b
+            modele_secours = (
+                "gemini/gemini-flash-lite-latest"
+                if fournisseur == "MISTRAL"
+                else "groq/openai/gpt-oss-120b"
+            )
+            logger.info(
+                "Indisponibilité %s (%s) pour %s -> Relais automatique sur %s",
+                modele,
+                type(err_primaire).__name__,
+                agent.nom_affiche,
+                modele_secours,
+            )
+            modele = modele_secours
+            fournisseur = extraire_fournisseur(modele)
+            try:
+                response = await asyncio.wait_for(
+                    litellm.acompletion(
+                        model=modele,
+                        messages=messages,
+                        temperature=temperature,
+                        response_format={"type": "json_object"},
+                        max_tokens=1024,
+                    ),
+                    timeout=5.0,
                 )
-                logger.info(
-                    "Indisponibilité %s pour %s -> Relais automatique sur %s",
-                    modele,
-                    agent.nom_affiche,
-                    modele_secours,
+            except Exception:
+                modele = "groq/openai/gpt-oss-20b"
+                fournisseur = "GROQ"
+                response = await asyncio.wait_for(
+                    litellm.acompletion(
+                        model=modele,
+                        messages=messages,
+                        temperature=temperature,
+                        response_format={"type": "json_object"},
+                        max_tokens=1024,
+                    ),
+                    timeout=5.0,
                 )
-                modele = modele_secours
-                fournisseur = extraire_fournisseur(modele)
-                try:
-                    response = await asyncio.wait_for(
-                        litellm.acompletion(
-                            model=modele,
-                            messages=messages,
-                            temperature=temperature,
-                            response_format={"type": "json_object"},
-                            max_tokens=1024,
-                        ),
-                        timeout=settings.llm_timeout_seconds,
-                    )
-                except Exception:
-                    modele = "groq/openai/gpt-oss-20b"
-                    fournisseur = "GROQ"
-                    response = await asyncio.wait_for(
-                        litellm.acompletion(
-                            model=modele,
-                            messages=messages,
-                            temperature=temperature,
-                            response_format={"type": "json_object"},
-                            max_tokens=1024,
-                        ),
-                        timeout=settings.llm_timeout_seconds,
-                    )
-            else:
-                raise
 
         latence_ms = round((time.perf_counter() - debut) * 1000, 1)
 
