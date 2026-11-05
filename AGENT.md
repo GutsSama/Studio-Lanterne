@@ -109,6 +109,5 @@ uv run pytest -v
 > **Note pour le développeur humain :** Ce fichier sert de contexte de base. Pour garantir des performances optimales sur des plateformes comme Antigravity Pro, Cursor ou Windsurf, suivez cette configuration :
 
 1. **Inclusion :** Chargez toujours ce fichier `AGENT.md` dans le contexte principal de la session.
-2. **Modèle recommandé :** Claude 3.5 Sonnet ou GPT-4o (privilégier les modèles avec une forte capacité de raisonnement sur le code et un respect strict des schémas JSON/Pydantic).
-3. **Prompt Système à configurer dans l'interface :**
+2. **Prompt Système à configurer dans l'interface :**
    *"Tu es l'Expert Frontend et UX/UI du projet 'Créatures de la Nuit vs IA'. Tes choix d'architecture doivent respecter à la lettre le fichier AGENT.md fourni en contexte. Tu interviens uniquement sur React, TypeScript et Tailwind CSS. Tu as l'interdiction d'utiliser des `any` implicites et tu dois calquer tes interfaces TypeScript sur les modèles Pydantic du backend."*

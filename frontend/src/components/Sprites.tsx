@@ -1,6 +1,5 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import type { ArchetypeIA, JoueurPublic, RolePersonnage } from "../types/game";
-import { spriteTombeRpg } from "../pixel/personnages";
 import { iconeRole } from "../pixel/icones";
 import { hacher } from "../pixel/moteur";
 
@@ -15,6 +14,19 @@ export function ImagePixel({ src, alt, className = "", style }: PropsImage) {
   return <img src={src} alt={alt} draggable={false} className={`pixelise select-none ${className}`} style={style} />;
 }
 
+export type GenreJoueur = "masculin" | "femme";
+export const CLE_AVATAR_JOUEUR = "studio_lanterne_avatar_joueur";
+
+export function obtenirGenreJoueur(): GenreJoueur {
+  if (typeof window === "undefined") return "masculin";
+  return (localStorage.getItem(CLE_AVATAR_JOUEUR) as GenreJoueur) || "masculin";
+}
+
+export function definirGenreJoueur(genre: GenreJoueur): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(CLE_AVATAR_JOUEUR, genre);
+}
+
 const FEUILLES_ARCHETYPE: Record<ArchetypeIA, string> = {
   mauvais_joueur: "/sprites/gerard_sheet.png",
   stratege: "/sprites/elena_sheet.png",
@@ -23,8 +35,11 @@ const FEUILLES_ARCHETYPE: Record<ArchetypeIA, string> = {
   paranoiaque: "/sprites/lucas_sheet.png",
 };
 
-function obtenirFeuilleSprite(joueur: JoueurPublic): string {
-  if (joueur.est_humain) return "/sprites/joueur_sheet.png";
+export function obtenirFeuilleSprite(joueur: JoueurPublic): string {
+  if (joueur.est_humain) {
+    const genre = obtenirGenreJoueur();
+    return genre === "femme" ? "/sprites/joueurfemme_sheet.png" : "/sprites/joueurmasculin_sheet.png";
+  }
   if (joueur.archetype && FEUILLES_ARCHETYPE[joueur.archetype]) {
     return FEUILLES_ARCHETYPE[joueur.archetype];
   }
@@ -58,18 +73,14 @@ export function SpritePersonnage({
   const [frame, setFrame] = useState(() => hacher(joueur.id) % 4);
 
   useEffect(() => {
-    if (!joueur.est_vivant || portrait) return;
-    // Rythme d'animation doux et désynchronisé entre chaque personnage (520 à 660 ms)
+    if (portrait) return;
+    // Rythme d'animation doux et désynchronisé entre chaque personnage ou stèle (520 à 660 ms)
     const intervalle = 520 + (hacher(joueur.id) % 140);
     const t = window.setInterval(() => setFrame((f) => (f + 1) % 4), intervalle);
     return () => window.clearInterval(t);
-  }, [joueur.est_vivant, joueur.id, portrait]);
+  }, [joueur.id, portrait]);
 
-  if (!joueur.est_vivant && tombeSiMort) {
-    return <ImagePixel src={spriteTombeRpg()} alt={joueur.nom_affiche} className={className} />;
-  }
-
-  const feuille = obtenirFeuilleSprite(joueur);
+  const feuille = !joueur.est_vivant && tombeSiMort ? "/sprites/tombe_sheet.png" : obtenirFeuilleSprite(joueur);
   const posX = portrait ? "0%" : `${frame * 33.3333}%`;
 
   if (portrait) {
@@ -77,7 +88,7 @@ export function SpritePersonnage({
       <div
         role="img"
         aria-label={joueur.nom_affiche}
-        className={`pixelise select-none overflow-hidden ${!joueur.est_vivant ? "grayscale opacity-65" : ""} ${className}`}
+        className={`pixelise select-none overflow-hidden ${!joueur.est_vivant ? "opacity-75" : ""} ${className}`}
         style={{
           backgroundImage: `url(${feuille})`,
           backgroundSize: "440% auto",
@@ -92,7 +103,7 @@ export function SpritePersonnage({
     <div
       role="img"
       aria-label={joueur.nom_affiche}
-      className={`pixelise select-none ${!joueur.est_vivant ? "grayscale opacity-60" : ""} ${className}`}
+      className={`pixelise select-none ${className}`}
       style={{
         aspectRatio: "165 / 350",
         backgroundImage: `url(${feuille})`,
