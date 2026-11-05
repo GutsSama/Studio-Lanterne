@@ -389,6 +389,55 @@ async def simuler_tour_ia(partie_id: UUID) -> dict[str, Any]:
 
             moteur.clore_votes_creatures_vers_alchimiste()
 
+            # d) Alchimiste IA : décide d'utiliser (ou non) une potion avant l'Aube
+            alchimiste_ia = next(
+                (
+                    j
+                    for j in partie.joueurs_vivants()
+                    if not j.est_humain and j.role == RolePersonnage.ALCHIMISTE
+                ),
+                None,
+            )
+            if alchimiste_ia and partie.phase_actuelle == PhasePartie.TOUR_ALCHIMISTE:
+                rep_alc, _ = await interroger_agent_ia(
+                    partie,
+                    alchimiste_ia,
+                    "C'est ton tour d'Alchimiste. Tu peux utiliser AU PLUS une potion cette nuit : "
+                    "'alchimiste_soigner' pour sauver la victime attaquée (jamais toi-même), "
+                    "'alchimiste_empoisonner' avec cible_id pour éliminer un suspect, "
+                    "ou pouvoir_utilise=null pour garder tes potions.",
+                )
+                pouvoir = rep_alc.action_technique.pouvoir_utilise
+                try:
+                    if pouvoir == TypeActionJeu.ALCHIMISTE_SOIGNER:
+                        executer_action_alchimiste(partie, alchimiste_ia, pouvoir)
+                        evenements_tour.append("L'Alchimiste a fait usage d'une potion dans l'ombre.")
+                    elif pouvoir == TypeActionJeu.ALCHIMISTE_EMPOISONNER:
+                        cible_alc = (
+                            partie.obtenir_joueur(rep_alc.action_technique.cible_id)
+                            if rep_alc.action_technique.cible_id
+                            else None
+                        )
+                        if cible_alc:
+                            executer_action_alchimiste(partie, alchimiste_ia, pouvoir, cible_alc.id)
+                            evenements_tour.append("L'Alchimiste a fait usage d'une potion dans l'ombre.")
+                except ErreurRegleJeu:
+                    # Décision invalide de l'IA (auto-sauvetage, potion épuisée, cible morte...) : ignorée
+                    pass
+
+            # Si l'Alchimiste est humain, on lui laisse la main : l'Aube sera résolue au prochain appel
+            if partie.phase_actuelle == PhasePartie.TOUR_ALCHIMISTE and any(
+                j.est_humain and j.role == RolePersonnage.ALCHIMISTE
+                for j in partie.joueurs_vivants()
+            ):
+                evenements_tour.append("Les Créatures ont choisi leur proie -> Tour de l'Alchimiste.")
+                return {
+                    "phase_executee": phase_depart.value,
+                    "nouvelle_phase": partie.phase_actuelle.value,
+                    "evenements": evenements_tour,
+                    "etat": serialiser_partie_pour_humain(partie),
+                }
+
         # c) Résolution de l'Aube
         morts = moteur.resoudre_aube()
         evenements_tour.append(
