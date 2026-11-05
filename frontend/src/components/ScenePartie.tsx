@@ -185,6 +185,7 @@ export function ScenePartie({
               <SpritePersonnage
                 joueur={j}
                 victoire={victoireCitoyens && j.est_vivant && j.role !== "creature"}
+                effraye={victoireLoups && j.est_vivant && j.role !== "creature"}
                 loupSiCreature={victoireLoups && j.role === "creature" && j.est_vivant}
                 className="w-full"
               />

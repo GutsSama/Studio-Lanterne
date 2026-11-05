@@ -51,12 +51,21 @@ const FEUILLES_VICTOIRE_ARCHETYPE: Record<ArchetypeIA, string> = {
   paranoiaque: "/sprites/lucas_victory_sheet.png",
 };
 
+const FEUILLES_EFFRAYE_ARCHETYPE: Record<ArchetypeIA, string> = {
+  mauvais_joueur: "/sprites/gerard_afraid_sheet.png",
+  stratege: "/sprites/elena_afraid_sheet.png",
+  drole: "/sprites/bob_afraid_sheet.png",
+  mystique: "/sprites/beatrice_afraid_sheet.png",
+  paranoiaque: "/sprites/lucas_afraid_sheet.png",
+};
+
 export function obtenirFeuilleSprite(
   joueur: JoueurPublic,
-  etat: boolean | "normal" | "mort" | "victoire" = "normal",
+  etat: boolean | "normal" | "mort" | "victoire" | "effraye" = "normal",
 ): string {
   const estMort = etat === true || etat === "mort";
   const estVictoire = etat === "victoire";
+  const estEffraye = etat === "effraye";
 
   if (estMort) {
     if (joueur.est_humain) {
@@ -92,6 +101,23 @@ export function obtenirFeuilleSprite(
     return "/sprites/joueur_victory_sheet.png";
   }
 
+  if (estEffraye) {
+    if (joueur.est_humain) {
+      const genre = obtenirGenreJoueur();
+      return genre === "femme" ? "/sprites/joueurfemme_afraid_sheet.png" : "/sprites/joueurmasculin_afraid_sheet.png";
+    }
+    if (joueur.archetype && FEUILLES_EFFRAYE_ARCHETYPE[joueur.archetype]) {
+      return FEUILLES_EFFRAYE_ARCHETYPE[joueur.archetype];
+    }
+    const nom = joueur.nom_affiche.toLowerCase();
+    if (nom.includes("gérard") || nom.includes("gerard")) return "/sprites/gerard_afraid_sheet.png";
+    if (nom.includes("elena")) return "/sprites/elena_afraid_sheet.png";
+    if (nom.includes("bob")) return "/sprites/bob_afraid_sheet.png";
+    if (nom.includes("béatrice") || nom.includes("beatrice")) return "/sprites/beatrice_afraid_sheet.png";
+    if (nom.includes("lucas")) return "/sprites/lucas_afraid_sheet.png";
+    return "/sprites/joueur_afraid_sheet.png";
+  }
+
   if (joueur.est_humain) {
     const genre = obtenirGenreJoueur();
     return genre === "femme" ? "/sprites/joueurfemme_sheet.png" : "/sprites/joueurmasculin_sheet.png";
@@ -119,12 +145,14 @@ interface PropsPersonnage {
   portrait?: boolean;
   /** Animation de victoire (célébration des citoyens survivants). */
   victoire?: boolean;
+  /** Animation d'effroi / défaite (quand les loups gagnent et qu'un citoyen survit). */
+  effraye?: boolean;
   /** Remplacer le sprite par le loup-garou victorieux si le joueur est une créature. */
   loupSiCreature?: boolean;
 }
 
 /**
- * Sprite animé en 4 frames à partir des sprite sheets fournis (`*_sheet.png`, `*_mort_sheet.png`, `*_victory_sheet.png`).
+ * Sprite animé en 4 frames à partir des sprite sheets fournis (`*_sheet.png`, `*_mort_sheet.png`, `*_victory_sheet.png`, `*_afraid_sheet.png`).
  */
 export function SpritePersonnage({
   joueur,
@@ -133,6 +161,7 @@ export function SpritePersonnage({
   tombeSiMort,
   portrait = false,
   victoire = false,
+  effraye = false,
   loupSiCreature = false,
 }: PropsPersonnage) {
   const [frame, setFrame] = useState(() => hacher(joueur.id) % 4);
@@ -143,12 +172,12 @@ export function SpritePersonnage({
 
   useEffect(() => {
     if (portrait || estMort) return;
-    // Rythme d'animation : plus vif lors de la victoire (400-500 ms) vs normal (520-660 ms)
-    const base = victoire ? 400 : 520;
-    const intervalle = base + (hacher(joueur.id) % (victoire ? 100 : 140));
+    // Rythme d'animation : plus vif lors de la victoire ou effroi (380-480 ms) vs normal (520-660 ms)
+    const base = victoire || effraye ? 400 : 520;
+    const intervalle = base + (hacher(joueur.id) % (victoire || effraye ? 100 : 140));
     const t = window.setInterval(() => setFrame((f) => (f + 1) % 4), intervalle);
     return () => window.clearInterval(t);
-  }, [joueur.id, estMort, portrait, victoire]);
+  }, [joueur.id, estMort, portrait, victoire, effraye]);
 
   let feuille: string;
   if (estMort) {
@@ -157,6 +186,8 @@ export function SpritePersonnage({
     feuille = "/sprites/loup_sheet.png";
   } else if (victoire) {
     feuille = obtenirFeuilleSprite(joueur, "victoire");
+  } else if (effraye) {
+    feuille = obtenirFeuilleSprite(joueur, "effraye");
   } else {
     feuille = obtenirFeuilleSprite(joueur, "normal");
   }
