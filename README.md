@@ -1,191 +1,386 @@
-# 🌙 Studio Lanterne — Créatures de la Nuit vs IA
+git # 🌙 Studio Lanterne — Créatures de la Nuit vs IA
 
-> Plateforme web de jeu de déduction sociale numérique permettant à un joueur humain d'affronter en solo plusieurs agents d'intelligence artificielle aux personnalités marquées et aux stratégies divergentes.
+> **Plateforme web de déduction sociale multijoueur solo** où un joueur humain affronte 5 agents d'intelligence artificielle autonomes dotés de personnalités distinctes, de stratégies divergentes et de capacités de bluff, d'accusation et de complot nocturne.
 
 <p align="center">
-  <img src="roadmap/Gemini_Generated_Image_c9dltuc9dltuc9dl.jpg" alt="Plan d'Architecture du Projet" width="850">
+  <img src="roadmap/Gemini_Generated_Image_c9dltuc9dltuc9dl.jpg" alt="Plan d'Architecture du Projet Studio Lanterne" width="850">
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/FastAPI-0.115+-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/Python-3.11%20|%203.12%20|%203.14-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React 19" />
+  <img src="https://img.shields.io/badge/TypeScript-5.x%20|%207.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-v4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="Tailwind CSS v4" />
+  <img src="https://img.shields.io/badge/Supabase-PostgreSQL_17-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase" />
+  <img src="https://img.shields.io/badge/LiteLLM-Multi--Providers-FF6B6B?style=for-the-badge" alt="LiteLLM" />
+  <img src="https://img.shields.io/badge/Tests-12%20Passés-brightgreen?style=for-the-badge&logo=pytest&logoColor=white" alt="Pytest" />
 </p>
 
 ---
 
-## 📋 Contexte & Cahier des Charges
+## 📋 Sommaire
 
-Le **Studio Lanterne**, éditeur indépendant de jeux de société numériques, constate la difficulté d'organiser des parties de déduction sociale en ligne (réunir 6 à 12 joueurs simultanément). Les robots existants étant scriptés et prévisibles, le studio a commandé une plateforme originale (**Créatures de la Nuit**, libre de droits) où les adversaires sont pilotés par des LLM dotés de personnalités uniques, capables de bluffer, accuser, débattre et comploter en secret.
-
-### Exigences Clés du Client :
-* **Agents IA Expressifs & Stratèges :** Au moins 5 agents par partie avec des archétypes distincts (*mauvais joueur, stratège, drôle, paranoïaque, mystique*).
-* **Communication Secrète Nocturne :** Chat secret de nuit réservé aux Créatures de la Nuit, hermétiquement clos vis-à-vis des Citoyens.
-* **Moteur de Règles Strict (Anti-Triche) :** Aucune décision ou hallucination d'un agent ne peut modifier l'état de jeu sans validation du moteur backend.
-* **Maîtrise des Coûts (Low-Cost) :** Suivi en temps réel des tokens et du coût par partie avec modèles optimisés (Groq / Llama 3.1, Mistral Small, Gemini 1.5 Flash via LiteLLM).
-* **Conformité RGPD & AI Act :** Information explicite du joueur sur la nature artificielle de ses adversaires, minimisation des données collectées, suppression en cascade.
-* **Comptes Sécurisés & Gamification :** Authentification sécurisée, statistiques de parties et succès déblocables (*achievements*).
+1. [Contexte Métier & Cahier des Charges](#-contexte-métier--cahier-des-charges)
+2. [Règles du Jeu & Rôles Officiels](#-règles-du-jeu--rôles-officiels)
+3. [Les 5 Personnalités d'IA (Multi-Modèles)](#-les-5-personnalités-dia-multi-modèles)
+4. [Stack Technologique & Rôles des Composants](#-stack-technologique--rôles-des-composants)
+5. [Architecture du Système](#-architecture-du-système)
+6. [Frontend : Scène Pixel Art & Interface Rétro](#-frontend--scène-pixel-art--interface-rétro)
+7. [Backend : Moteur FSM Déterministe & Orchestrateur](#-backend--moteur-fsm-déterministe--orchestrateur)
+8. [Base de Données PostgreSQL & Supabase](#-base-de-données-postgresql--supabase)
+9. [Sécurité, Anti-Triche & Conformité AI Act / RGPD](#-sécurité-anti-triche--conformité-ai-act--rgpd)
+10. [Observabilité & Dashboard LiteLLM](#-observabilité--dashboard-litellm)
+11. [Installation & Démarrage Pas-à-Pas](#-installation--démarrage-pas-à-pas)
+12. [Tests & Assurance Qualité](#-tests--assurance-qualité)
+13. [Variables d'Environnement](#-variables-denvironnement)
 
 ---
 
-## 🛠️ Stack Technologique
+## 🎯 Contexte Métier & Cahier des Charges
 
-| Composant | Technologie | Rôle & Justification |
+Le **Studio Lanterne**, éditeur indépendant de jeux de société numériques, a commandé une plateforme web originale pour résoudre la contrainte numéro un des jeux de déduction sociale : **la difficulté de réunir 6 à 12 joueurs simultanément en ligne**.
+
+À la différence des robots de jeux classiques prévisibles et scriptés, **Créatures de la Nuit** met en scène un joueur humain face à **5 convives pilotés par des modèles de langage avancés (LLM)** via une orchestration multi-fournisseurs (**Mistral AI**, **Groq / Llama**, **Google Gemini**).
+
+### Piliers obligatoires du projet :
+* **Déduction sociale asymétrique :** Citoyens du village contre Créatures de la Nuit, avec rôles cachés distribués aléatoirement au début de chaque partie.
+* **Moteur de règles déterministe (Anti-Triche & Anti-Hallucination) :** Les LLM n'ont aucun accès direct à la base de données. Leurs sorties sont contraintes en JSON strict, validées et appliquées par une machine à états finis (FSM) côté backend.
+* **Cloisonnement contextuel hermétique :** Impossible pour un agent Citoyen d'accéder aux pensées secrètes ou aux discussions nocturnes des Créatures.
+* **Chat vivant & interactif :** Dès que le joueur humain prend la parole au débat ou interpelle un convive, l'IA concernée réagit immédiatement en direct selon sa personnalité.
+* **Maîtrise des coûts (Low-Cost) :** Suivi en temps réel des tokens et du coût en dollars USD via LiteLLM avec fenêtres glissantes et mise en cache.
+* **Conformité stricte AI Act & RGPD :** Accord explicite préalable (Art. 50 AI Act), mention `est_ia = true` sur chaque message, minimisation des données et suppression en cascade (`ON DELETE CASCADE`).
+
+---
+
+## 📜 Règles du Jeu & Rôles Officiels
+
+Les règles du jeu sont strictement codifiées dans [`REGLELOUPGAROU.md`](REGLELOUPGAROU.md) et appliquées par le moteur Python ([`backend/app/engine/rules.py`](backend/app/engine/rules.py)).
+
+### 1. Les Rôles du Jeu (5 rôles stricts)
+
+| Rôle | Camp | Pouvoir & Mécanique de Jeu |
+| :--- | :---: | :--- |
+| **Citoyen** (`citoyen`) | Citoyens | Habitant du village sans pouvoir nocturne. Débat le jour, vote au Conseil et tente de démasquer les imposteurs. |
+| **Créature de la Nuit** (`creature`) | Créatures | Chasse en meute la nuit via un canal secret. Élimine un villageois chaque nuit et brouille les pistes le jour. |
+| **Inquisiteur** (`inquisiteur`) | Citoyens | Sonde l'âme d'un convive chaque nuit pour percer à jour son allégeance secrète (*Citoyens* ou *Créatures*). |
+| **Alchimiste** (`alchimiste`) | Citoyens | Possède **deux fioles uniques par partie** : la **Potion de Vie** (annule la mort nocturne) et la **Potion de Mort** (empoisonne un suspect). |
+| **Garde du Corps** (`garde_du_corps`) | Citoyens | En cas d'élimination (nuit ou vote du jour), dégaine une dernière balle pour abattre un suspect dans son dernier souffle. |
+
+### 2. Le Cycle des Phases de Jeu
+
+```mermaid
+stateDiagram-v2
+    [*] --> NUIT : Début du Tour
+    NUIT --> TOUR_ALCHIMISTE : Créatures choisissent leur victime
+    TOUR_ALCHIMISTE --> DEBAT_JOUR : L'Alchimiste utilise potion vie/mort (ou passe)
+    DEBAT_JOUR --> VOTE_JOUR : Échanges publics et confrontation (Chat direct)
+    VOTE_JOUR --> TOUR_GARDE_DU_CORPS : Dépouillement du vote du Conseil
+    TOUR_GARDE_DU_CORPS --> NUIT : Tour suivant (si le Garde est mort et tire)
+    VOTE_JOUR --> NUIT : Tour suivant (si aucune riposte du Garde)
+    VOTE_JOUR --> TERMINEE : Victoire Citoyens ou Créatures
+    NUIT --> TERMINEE : Victoire Créatures
+```
+
+* **Condition de Victoire des Citoyens :** Toutes les Créatures de la Nuit sont éliminées.
+* **Condition de Victoire des Créatures :** Les Créatures égalent ou dépassent en nombre les villageois vivants.
+
+---
+
+## 🎭 Les 5 Personnalités d'IA (Multi-Modèles)
+
+Chaque partie oppose le joueur humain à 5 agents aux profils psychologiques contrastés, seedés en base via [`supabase/seed.sql`](supabase/seed.sql) :
+
+```
+          ┌──────────────────────────────────────────────────┐
+          │             TABLE DE LA TAVERNE                  │
+          ├─────────────────────────┬────────────────────────┤
+          │ 1. Gérard le Râleur     │ Mauvais Joueur         │
+          │ 2. Elena la Stratège    │ Logicienne Méfiante    │
+          │ 3. Bob le Rigolo        │ Bluffeur Humoristique  │
+          │ 4. Sœur Béatrice        │ Diplomate Mystique     │
+          │ 5. Lucas le Paranoïaque │ Suiveur Nerveux        │
+          └─────────────────────────┴────────────────────────┘
+```
+
+1. **Gérard le Râleur** (`mauvais_joueur` — *Groq / Llama 3.1 8B*) :  
+   Leader agressif, impulsif et mauvais perdant. Lance les débats, accuse sans détours et s'insurge violemment dès qu'un vote est dirigé contre lui.
+2. **Elena la Stratège** (`stratege` — *Mistral AI / Mistral Small*) :  
+   Analytique, froide et méthodique. Scrute les incohérences de votes, calcule les probabilités et construit des argumentaires rationnels.
+3. **Bob le Rigolo** (`drole` — *Google Gemini / Gemini 1.5 Flash*) :  
+   Bluffeur imperturbable masquant ses intentions sous un humour absurde, des calembours et une fausse candeur pour manipuler l'opinion.
+4. **Sœur Béatrice la Mystique** (`mystique` — *Mistral AI / Mistral Small*) :  
+   Diplomate pieuse parlant par paraboles, visions nocturnes et signes prophétiques pour apaiser ou orienter subtilement le conseil.
+5. **Lucas le Paranoïaque** (`paranoiaque` — *Groq / Llama 3.1 8B*) :  
+   Suiveur nerveux obsédé par les complots. Craintif, influençable, il panique dès qu'un joueur hausse le ton et suspecte tout le monde.
+
+---
+
+## 🛠️ Stack Technologique & Rôles des Composants
+
+| Couche | Technologies | Justification & Responsabilités |
 | :--- | :--- | :--- |
-| **Frontend** | **React / TypeScript / Tailwind CSS** | Interface immersive avec chat en direct, animations jour/nuit et vote interactif. |
-| **Backend** | **Python / FastAPI (Asynchrone)** | Moteur de règles déterministe, gestion des WebSockets et orchestration asynchrone des agents. |
-| **Base de Données & Auth** | **Supabase (PostgreSQL 17)** | Authentification JWT, RLS anti-triche, persistance des états, métriques de tokens. |
-| **Modèles d'IA** | **Mistral AI, Groq (Llama 3), Gemini** | Approche multi-fournisseurs unifiée par **LiteLLM** pour diversifier le comportement des agents. |
-| **Déploiement & CI/CD** | **Google Cloud Run / GitHub Actions** | Hébergement serverless à coût nul hors utilisation. |
+| **Frontend** | **React 19**, **TypeScript**, **Tailwind CSS v4**, **Vite** | Scène de village en pixel art, spritesheets animées, feu de camp dynamique, chat progressif RPG, dialogue interactif. |
+| **Backend** | **Python 3.11+**, **FastAPI**, **Pydantic v2**, **Uvicorn**, **uv** | Moteur déterministe FSM, validation anti-triche, API REST & WebSockets, gestion asynchrone des LLM via `asyncio`. |
+| **Base de Données** | **Supabase (PostgreSQL 17)** | Schéma relationnel 100% en français, politiques RLS anti-triche, trigger SQL de comptabilisation des coûts et tokens. |
+| **Orchestration LLM** | **LiteLLM** (`acompletion`) | Passerelle universelle unifiant Mistral, Groq et Gemini avec formatage JSON contraint et suivi automatique des coûts. |
+| **Typographie & Pixel** | **Press Start 2P**, **VT323**, Canvas 2D | Ambiance rétro 16-bit authentique, rendu pixelisé sans flou (`image-rendering: pixelated`). |
+| **Tests & Qualité** | **Pytest**, **pytest-asyncio** | Suite de tests automatisés couvrant la FSM, l'anti-triche, la fuite contextuelle et les cas limites. |
 
 ---
 
-## 🗄️ Architecture de la Base de Données (PostgreSQL / Supabase)
+## 🏗️ Architecture du Système
 
-L'ensemble du modèle de données est entièrement nommé en **français** pour correspondre aux spécifications métier du Studio Lanterne.
+```mermaid
+flowchart TD
+    subgraph Client ["Frontend (React 19 / TypeScript / Vite)"]
+        UI[Interface Pixel Art & HUD]
+        Scene[Scène Village & Spritesheets]
+        Chat[Chat Interactif Instantané]
+        Action[Panneau d'Actions & Ciblage]
+    end
 
-<p align="center">
-  <img src="roadmap/studio_lantern/schema_tables.png" alt="Schéma des Tables Supabase" width="850">
-</p>
-<p align="center">
-  <em>Visualisation vectorielle interactive haute fidélité disponible : <a href="roadmap/studio_lantern/schema_tables.svg">schema_tables.svg</a></em>
-</p>
+    subgraph Backend ["Backend FastAPI (Port 8000)"]
+        Router[Endpoints REST /api/parties]
+        WS[WebSocket /ws/parties]
+        FSM[Moteur FSM Déterministe]
+        Rules[Moteur de Règles Anti-Triche]
+        Context[Context Builder Anti-Fuite]
+        Orch[Orchestrateur LiteLLM]
+        Obs[Dashboard Observabilité /dashboard-llm]
+    end
+
+    subgraph AI_Providers ["Fournisseurs d'IA (Multi-LLM)"]
+        Groq[Groq - Llama 3.1 / Qwen]
+        Mistral[Mistral AI - Mistral Small]
+        Gemini[Google Gemini 1.5 Flash]
+    end
+
+    subgraph Storage ["Persistance Supabase (PostgreSQL 17)"]
+        RLS[Row Level Security]
+        Tables[(Tables Françaises)]
+        Triggers[Triggers Coûts & Tokens]
+    end
+
+    UI -->|Requêtes HTTP / REST| Router
+    Chat -->|Messages & Réponses directes| Router
+    UI <-->|Événements Temps Réel| WS
+    Router --> FSM
+    FSM --> Rules
+    FSM --> Context
+    Context --> Orch
+    Orch -->|acompletion| Groq
+    Orch -->|acompletion| Mistral
+    Orch -->|acompletion| Gemini
+    Orch --> Obs
+    FSM --> Tables
+    Tables --> RLS
+    Tables --> Triggers
+```
 
 ---
 
-### 1. Modèle Conceptuel de Données (MCD)
+## 🎨 Frontend : Scène Pixel Art & Interface Rétro
+
+Le frontend est situé dans [`frontend/`](frontend/) et a été conçu pour offrir une immersion immédiate inspirée des classiques du jeu de rôle rétro :
+
+1. **Scène Visuelle Vivante ([`frontend/src/components/ScenePartie.tsx`](frontend/src/components/ScenePartie.tsx)) :**
+   * Décors en haute définition alternant automatiquement entre **Village Jour** (`villagejour.jpeg`) et **Village Nuit** (`villagenuit.jpeg`).
+   * **Feu de camp animé la nuit** : spritesheet [`feu_sheet.png`](frontend/public/sprites/feu_sheet.png) superposée au pixel près sur le cercle de pierres central.
+   * **Bustes et Spritesheets de personnages** : disposition circulaire en perspective autour de la place du village avec étiquettes de noms, statut vivant/mort et bulles de dialogue flottantes au-dessus de l'orateur actif.
+2. **Choix de l'Avatar & AI Act ([`frontend/src/components/EcranTitre.tsx`](frontend/src/components/EcranTitre.tsx)) :**
+   * Écran titre majestueux permettant de saisir son pseudo, de choisir son apparence (**Voyageur** ou **Voyageuse**) et de sélectionner un rôle forcé (ou tirage aléatoire).
+   * Notice de transparence obligatoire validant la conformité avec l'article 50 de l'AI Act européen.
+3. **Chat Dynamique & Réponse Instantanée ([`frontend/src/components/Chat.tsx`](frontend/src/components/Chat.tsx)) :**
+   * Révélation progressive des messages façon RPG.
+   * **Réponse immédiate des IA** : lorsque le joueur envoie un message en phase de débat (par exemple en mentionnant `@Gérard`), l'IA concernée prend la parole directement sans attendre de faire passer le tour complet.
+   * Cloisonnement par onglets : *Place Publique*, *Complot Nocturne des Créatures* (verrouillé pour les Citoyens) et *Paroles des Morts*.
+4. **Panneau d'Action Contextuel ([`frontend/src/components/PanneauAction.tsx`](frontend/src/components/PanneauAction.tsx)) :**
+   * N'active que les actions légitimes selon la phase et le rôle : inspection de l'Inquisiteur, potions de l'Alchimiste, vote du Conseil, tir du Garde du Corps.
+
+---
+
+## ⚙️ Backend : Moteur FSM Déterministe & Orchestrateur
+
+Le backend est situé dans [`backend/`](backend/) et repose sur une séparation stricte entre délibération IA et application des règles :
+
+### 1. Cloisonnement Contextuel Anti-Fuite ([`backend/app/agents/context_builder.py`](backend/app/agents/context_builder.py))
+* Aucun agent ne reçoit la totalité de l'état du jeu.
+* La fonction `filtrer_messages_autorises()` élimine systématiquement les messages des canaux interdits (`creature_secret` pour un Citoyen).
+* La mémoire interne (`analyse_interne`) de chaque agent est hermétiquement isolée et n'est jamais exposée aux autres joueurs.
+
+### 2. Sortie JSON Structurée Pydantic ([`backend/app/models/ai_schema.py`](backend/app/models/ai_schema.py))
+Chaque appel LLM via LiteLLM est contraint à respecter ce schéma exact :
+```python
+class ReponseAgentIA(BaseModel):
+    analyse_interne: str = Field(description="Raisonnement stratégique privé")
+    action_technique: ActionTechniqueIA = Field(description="Intention formelle d'action")
+    declaration_publique: str = Field(description="Prise de parole publique dans le chat")
+```
+Si un LLM échoue, timeout ou hallucine, le système applique un **fallback déterministe** immédiat sans bloquer la partie.
+
+### 3. Endpoints REST Principaux ([`backend/app/api/routes.py`](backend/app/api/routes.py))
+
+| Méthode | Chemin | Description |
+| :---: | :--- | :--- |
+| `POST` | `/api/parties` | Crée une nouvelle partie avec consentement AI Act et attribution des rôles. |
+| `GET` | `/api/parties/{id}` | Retourne l'état public de la partie filtré selon les droits du joueur (Anti-Triche). |
+| `POST` | `/api/parties/{id}/simuler-tour` | Fait avancer la FSM (délibérations nocturnes, débat diurne ou dépouillement). |
+| `POST` | `/api/parties/{id}/messages` | Envoie un message du joueur et **déclenche la réponse instantanée d'un convive IA**. |
+| `POST` | `/api/parties/{id}/votes` | Enregistre le vote officiel du joueur humain lors du Conseil. |
+| `POST` | `/api/parties/{id}/actions` | Exécute un pouvoir spécial (Inquisiteur, Potion Alchimiste, Tir du Garde). |
+| `GET` | `/dashboard-llm` | Interface web interactive de suivi des coûts et de santé des modèles. |
+| `GET` | `/api/diagnostic-cles` | Vérifie la connectivité en temps réel des clés Groq, Mistral et Gemini. |
+
+---
+
+## 🗄️ Base de Données PostgreSQL & Supabase
+
+L'intégralité du modèle de données est codifié en **français** dans [`supabase/migrations/20261103000000_initial_schema.sql`](supabase/migrations/20261103000000_initial_schema.sql) :
 
 ```mermaid
 erDiagram
-    PROFILS ||--|| STATISTIQUES_JOUEURS : "possede (1,1)"
-    PROFILS ||--o{ SUCCES_JOUEURS : "debloque (0,n)"
-    SUCCES ||--o{ SUCCES_JOUEURS : "concerne (0,n)"
-    PROFILS ||--o{ PARTIES : "cree (0,n)"
-    PARTIES ||--|{ JOUEURS_PARTIE : "comporte (6,12)"
-    PROFILS ||--o{ JOUEURS_PARTIE : "incarne (0,1)"
-    PERSONNALITES_IA ||--o{ JOUEURS_PARTIE : "pilote (0,n)"
-    PARTIES ||--o{ MESSAGES_PARTIE : "contient (0,n)"
-    JOUEURS_PARTIE ||--o{ MESSAGES_PARTIE : "emet (0,n)"
-    PARTIES ||--o{ VOTES_PARTIE : "enregistre (0,n)"
-    JOUEURS_PARTIE ||--o{ VOTES_PARTIE : "vote (0,n)"
-    JOUEURS_PARTIE ||--o{ VOTES_PARTIE : "est_cible (0,n)"
-    PARTIES ||--o{ ACTIONS_PARTIE : "journalise (0,n)"
-    JOUEURS_PARTIE ||--o{ ACTIONS_PARTIE : "execute (0,n)"
+    PROFILS ||--|| STATISTIQUES_JOUEURS : "possede"
+    PROFILS ||--o{ SUCCES_JOUEURS : "obtient"
+    SUCCES ||--o{ SUCCES_JOUEURS : "concerne"
+    PROFILS ||--o{ PARTIES : "cree"
+    PARTIES ||--|{ JOUEURS_PARTIE : "comporte (6 convives)"
+    PROFILS ||--o{ JOUEURS_PARTIE : "incarne"
+    PERSONNALITES_IA ||--o{ JOUEURS_PARTIE : "anime"
+    PARTIES ||--o{ MESSAGES_PARTIE : "enregistre"
+    JOUEURS_PARTIE ||--o{ MESSAGES_PARTIE : "emet"
+    PARTIES ||--o{ VOTES_PARTIE : "recueille"
+    JOUEURS_PARTIE ||--o{ VOTES_PARTIE : "vote"
+    PARTIES ||--o{ ACTIONS_PARTIE : "journalise"
+    JOUEURS_PARTIE ||--o{ ACTIONS_PARTIE : "execute"
+```
 
-    PROFILS {
-        uuid id PK
-        string nom_utilisateur
-        string avatar_url
-        boolean consentement_ai_act
-        timestamp cree_le
-    }
+### Tables du Schéma Français :
+* **`profils`** : Lié à `auth.users(id)` via clé UUID. Stocke `consentement_ai_act`, `nom_utilisateur`, `avatar_url`.
+* **`parties`** : État général (`statut`, `phase_actuelle`, `tour_actuel`, `camp_vainqueur`, `tokens_total_utilises`, `cout_estime_usd`).
+* **`joueurs_partie`** : Convives à table (`est_humain`, `role`, `est_vivant`, `numero_siege`, `memoire_ia`).
+* **`messages_partie`** : Dialogues (`canal`: *village_public*, *creature_secret*, *chat_morts*, *systeme*, `tokens_utilises`).
+* **`votes_partie`** : Votes du Conseil avec argumentation textuelle.
+* **`actions_partie`** : Journal des pouvoirs exécutés (`details_resultat`).
+* **`personnalites_ia`** : Catalogue des 5 archétypes avec prompts système et températures.
+* **`statistiques_joueurs`** & **`succes`** : Gamification et historique de victoires.
 
-    PERSONNALITES_IA {
-        uuid id PK
-        string nom
-        string archetype
-        text prompt_systeme
-        string modele_par_defaut
-        float temperature
-    }
+### Sécurité & Triggers SQL :
+* **Row Level Security (RLS)** : Bloque les requêtes directes sur `creature_secret` pour les non-créatures.
+* **Trigger `sur_ajout_message_token`** : Incrémente automatiquement `tokens_total_utilises` et `cout_estime_usd` à chaque insertion de message.
+* **Délégation d'Authentification** : Gestion des identifiants déléguée au moteur d'authentification Supabase (hachage bcrypt), aucun mot de passe en clair.
 
-    PARTIES {
-        uuid id PK
-        enum statut
-        enum phase_actuelle
-        int tour_actuel
-        enum camp_vainqueur
-        int tokens_total_utilises
-        decimal cout_estime_usd
-    }
+---
 
-    JOUEURS_PARTIE {
-        uuid id PK
-        boolean est_humain
-        enum role
-        boolean est_vivant
-        boolean est_capitaine
-        int numero_siege
-        jsonb memoire_ia
-    }
+## 🛡️ Sécurité, Anti-Triche & Conformité AI Act / RGPD
 
-    MESSAGES_PARTIE {
-        uuid id PK
-        enum canal
-        text contenu
-        int tokens_utilises
-        int tour
-    }
+1. **Règlement Européen sur l'IA (AI Act — Article 50) :**
+   * L'utilisateur est explicitement informé avant de rejoindre la table qu'il interagit avec des intelligences artificielles génératives.
+   * Case à cocher obligatoire enregistrée avec horodatage (`date_consentement_ai_act`).
+   * Tous les messages générés comportent le drapeau `est_ia = true`.
+2. **Règlement Général sur la Protection des Données (RGPD) :**
+   * Principe de minimisation : aucune donnée personnelle superflue (pas de nom de famille, numéro ou géolocalisation).
+   * Droit à l'oubli : suppression en cascade intégrale (`ON DELETE CASCADE`) des parties et statistiques lors de la suppression d'un compte.
+3. **Dispositif Anti-Triche Déterministe :**
+   * Sérialisation filtrée : le client frontend ne reçoit jamais le rôle des IA vivantes via les requêtes réseau (`GET /api/parties/{id}`).
+   * Les LLM ne disposent d'aucun droit d'écriture direct en base.
 
-    VOTES_PARTIE {
-        uuid id PK
-        int tour
-        enum phase
-        text argumentation
-    }
+---
 
-    ACTIONS_PARTIE {
-        uuid id PK
-        int tour
-        enum type_action
-        jsonb details_resultat
-    }
+## 📊 Observabilité & Dashboard LiteLLM
+
+Le backend intègre un tableau de bord accessible directement sur **`http://localhost:8000/dashboard-llm`** :
+
+* **Télémétrie en temps réel** : Suivi des tokens totaux consommés, requêtes réussies, fallbacks et erreurs.
+* **Coût estimé en USD** : Calcul précis basé sur les tarifs officiels par modèle (Groq, Mistral, Gemini).
+* **Santé des Fournisseurs** : Indicateurs de disponibilité en direct pour Mistral AI, Groq et Google Gemini.
+* **Latence moyenne** : Mesure en millisecondes du temps de réponse de chaque agent.
+
+---
+
+## 🚀 Installation & Démarrage Pas-à-Pas
+
+### Prérequis
+* **Python** `>= 3.11` (avec l'outil [`uv`](https://docs.astral.sh/uv/) recommandé ou `pip`)
+* **Node.js** `>= 18.0` et **npm**
+* Clés d'API valides pour au moins un des fournisseurs : **Groq**, **Mistral AI**, ou **Google Gemini**
+
+---
+
+### 1. Cloner le Dépôt
+```bash
+git clone https://github.com/votre-compte/Studio-Lanterne.git
+cd Studio-Lanterne
 ```
 
 ---
 
-### 2. Modèle Logique de Données (MLD)
-
-* **`profils`** (<u>id</u>, nom_utilisateur, avatar_url, consentement_ai_act, date_consentement_ai_act, cree_le, mis_a_jour_le)  
-  *Clé étrangère : `id` → `auth.users(id)` ON DELETE CASCADE*
-* **`statistiques_joueurs`** (<u>#joueur_id</u>, parties_jouees, parties_gagnees, parties_perdues, victoires_citoyens, victoires_creatures, victoires_solo, temps_de_jeu_total_secondes, mis_a_jour_le)  
-  *Clé étrangère : `joueur_id` → `profils(id)`*
-* **`succes`** (<u>id</u>, code, titre, description, icone_badge, points, cree_le)
-* **`succes_joueurs`** (<u>#joueur_id, #succes_id</u>, debloque_le)  
-  *Clés étrangères : `joueur_id` → `profils(id)`, `succes_id` → `succes(id)`*
-* **`personnalites_ia`** (<u>id</u>, nom, archetype, avatar_url, prompt_systeme, modele_par_defaut, temperature, cree_le)
-* **`parties`** (<u>id</u>, #hote_id, statut, phase_actuelle, tour_actuel, camp_vainqueur, tokens_total_utilises, cout_estime_usd, date_limite_phase, creee_le, terminee_le)  
-  *Clé étrangère : `hote_id` → `profils(id)`*
-* **`joueurs_partie`** (<u>id</u>, #partie_id, est_humain, #joueur_id, #personnalite_ia_id, nom_affiche, avatar_url, role, est_vivant, est_capitaine, tour_mort, cause_mort, numero_siege, memoire_ia, cree_le)  
-  *Clés étrangères : `partie_id` → `parties(id)`, `joueur_id` → `profils(id)`, `personnalite_ia_id` → `personnalites_ia(id)`*
-* **`messages_partie`** (<u>id</u>, #partie_id, #joueur_emetteur_id, canal, tour, phase, contenu, est_ia, tokens_utilises, cree_le)  
-  *Clés étrangères : `partie_id` → `parties(id)`, `joueur_emetteur_id` → `joueurs_partie(id)`*
-* **`votes_partie`** (<u>id</u>, #partie_id, tour, phase, #joueur_votant_id, #joueur_cible_id, argumentation, cree_le)  
-  *Clés étrangères : `partie_id` → `parties(id)`, `joueur_votant_id` → `joueurs_partie(id)`, `joueur_cible_id` → `joueurs_partie(id)`*
-* **`actions_partie`** (<u>id</u>, #partie_id, tour, #joueur_acteur_id, type_action, #joueur_cible_id, details_resultat, cree_le)  
-  *Clés étrangères : `partie_id` → `parties(id)`, `joueur_acteur_id` → `joueurs_partie(id)`, `joueur_cible_id` → `joueurs_partie(id)`*
-
----
-
-### 3. Fonctionnalités Métier Implémentées en Base
-
-#### A. Cloisonnement et Chat Secret (Créatures & Morts)
-Le canal des messages (`messages_partie.canal`) supporte 4 canaux étanches :
-* `village_public` : accessible à tous les joueurs vivants.
-* `creature_secret` : protégé par **Row Level Security (RLS)** — le joueur humain ne peut requêter ces lignes que si son rôle est `creature`.
-* `chat_morts` : réservé aux joueurs éliminés.
-* `systeme` : annonces publiques du meneur de jeu.
-
-#### B. Suivi Automatisé des Coûts et Tokens (Low-Cost)
-Un trigger SQL (`sur_ajout_message_token`) calcule et incrémente automatiquement le nombre total de tokens consommés et le coût estimé en dollars dans la table `parties` dès qu'un message d'agent IA est inséré.
-
-#### C. Sécurité, RGPD & AI Act
-* **Délégation d'Authentification Supabase (`auth.users`) :** C'est le module sécurisé de Supabase qui gère l'email, la cryptographie, le salage et le hachage des mots de passe (bcrypt). Stocker un mot de passe dans une table publique comme `profils` serait une faille de sécurité majeure. La table `profils` sert de pont via l'identifiant `UUID` (`id REFERENCES auth.users(id)`), séparant hermétiquement les données d'identification sécurisées des informations publiques de jeu (pseudo, avatar).
-* **AI Act :** Champ `consentement_ai_act` obligatoire et horodaté lors de l'on-boarding. Les messages indiquent explicitement `est_ia = true`.
-* **RGPD :** Aucune donnée personnelle superflue n'est collectée (aucun nom de famille ni adresse). La suppression d'un compte utilisateur propage une suppression en cascade (`ON DELETE CASCADE`) sur toutes ses données de jeu associées.
-
-#### D. Catalogue des 5 Personnalités Initiales (Seed Multi-Modèles LiteLLM)
-1. **Gérard le Râleur** (`mauvais_joueur` — `groq/llama-3.1-8b-instant`) : Leader agressif, méfiant, impulsif et prompt à accuser.
-2. **Elena la Stratège** (`stratege` — `mistral/mistral-small-latest`) : Logicienne méfiante, analytique, probabiliste et méthodique.
-3. **Bob le Rigolo** (`drole` — `gemini/gemini-1.5-flash`) : Bluffeur imperturbable, humour absurde et fausse naïveté.
-4. **Sœur Béatrice** (`mystique` — `mistral/mistral-small-latest`) : Diplomate mystique, intuition divine et déclarations prophétiques.
-5. **Lucas le Paranoïaque** (`paranoiaque` — `groq/llama-3.1-8b-instant`) : Suiveur nerveux, craintif, influençable et obsédé par les complots.
-
----
-
-## 🚀 Fichiers SQL et Déploiement Supabase
+### 2. Configuration du Backend
 
 ```bash
-# 1. Schéma des tables en français avec triggers et politiques RLS
-supabase/migrations/20261103000000_initial_schema.sql
+cd backend
 
-# 2. Données initiales (5 personnalités IA et succès)
-supabase/seed.sql
+# Créer le fichier d'environnement
+cp .env.example .env
 ```
+
+Éditez le fichier `.env` avec vos clés d'accès :
+```dotenv
+APP_ENV=development
+PORT=8000
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+
+# Supabase (Base de données & Auth)
+SUPABASE_URL=https://votre-projet.supabase.co
+SUPABASE_ANON_KEY=votre-cle-anon
+SUPABASE_SERVICE_ROLE_KEY=votre-cle-service-role
+
+# Clés d'API Fournisseurs LLM
+GROQ_API_KEY=gsk_...
+MISTRAL_API_KEY=...
+GEMINI_API_KEY=AIzaSy...
+
+# Budget et Garde-fous
+LLM_TIMEOUT_SECONDS=3.5
+MAX_TOKENS_PER_GAME=50000
+SLIDING_WINDOW_MESSAGES=8
+DEBATE_ROUNDS_PER_DAY=2
+```
+
+#### Installer les dépendances et démarrer le serveur FastAPI :
+```bash
+# Avec uv (recommandé, ultra-rapide) :
+uv sync
+uv run uvicorn app.main:app --reload --port 8000
+
+# Ou avec un environnement virtuel Python classique :
+python3 -m venv .venv
+source .venv/bin/activate  # Sur Windows : .venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+* Le backend est accessible sur : **`http://127.0.0.1:8000`**
+* La documentation Swagger interactive sur : **`http://127.0.0.1:8000/docs`**
+* Le dashboard d'observabilité LLM sur : **`http://127.0.0.1:8000/dashboard-llm`**
+
+---
+
+### 3. Configuration & Démarrage du Frontend
+
+Dans un nouveau terminal :
+```bash
+cd frontend
+
+# Installer les dépendances (dont polices Pixel Art et Tailwind CSS)
+npm install
+
+# Démarrer le serveur de développement Vite
+npm run dev
+```
+
+* L'application web est accessible sur : **`http://127.0.0.1:5173`**
+* Vite redirige automatiquement les appels `/api` vers le backend sur le port `8000`.
 
 ---
 
@@ -216,87 +411,56 @@ Une partie oppose **6 joueurs** (**1 joueur humain** face à **5 agents IA**) r�
 
 ---
 
-## ⚙️ Guide d'Installation & Démarrage Rapide
-
-### Prérequis
-* **Node.js** (v20+ recommandé) et **npm**
-* **Python** (3.11 ou supérieur)
-* Un projet **Supabase** (gratuit) ou une instance PostgreSQL locale
-* Une clé d'accès LLM (**Groq**, **Mistral** ou **Gemini**)
-
----
-
-### 1. Configuration des Variables d'Environnement
-Dupliquez le fichier d'exemple dans le dossier `backend` :
-```bash
-cp backend/.env.example backend/.env
-```
-Renseignez vos clés d'API dans `backend/.env` :
-```env
-SUPABASE_URL=https://votre-projet.supabase.co
-SUPABASE_ANON_KEY=votre-cle-anon
-SUPABASE_SERVICE_ROLE_KEY=votre-cle-service-role
-GROQ_API_KEY=gsk_...
-MISTRAL_API_KEY=...
-GEMINI_API_KEY=...
-```
-
----
-
-### 2. Démarrer le Backend (FastAPI)
-```bash
-# Se placer dans le répertoire backend
-cd backend
-
-# Créer et activer l'environnement virtuel
-python3 -m venv .venv
-source .venv/bin/activate  # Sur Windows : .venv\Scripts\activate
-
-# Installer les dépendances
-pip install -r requirements.txt
-
-# Lancer le serveur backend
-uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
-```
-> Le serveur backend est accessible sur **http://127.0.0.1:8000** et sa documentation interactive OpenAPI Swagger sur **http://127.0.0.1:8000/docs**.
-
----
-
-### 3. Démarrer le Frontend (React / Vite)
-Dans un nouveau terminal :
-```bash
-# Se placer dans le répertoire frontend
-cd frontend
-
-# Installer les dépendances (dont polices et composants UI)
-npm install
-
-# Démarrer le serveur Vite
-npm run dev
-```
-> L'application est jouable sur **http://127.0.0.1:5173**. Vite redirige automatiquement les appels `/api` vers le backend sur le port `8000`.
-
----
-
 ## 🧪 Tests & Assurance Qualité
 
-### Tests Automatisés Backend (Pytest)
-La suite de tests vérifie l'intégrité de la machine à états (FSM), la prévention des fuites de contexte (anti-triche), et la conformité des règles du jeu :
+Le projet applique une rigueur stricte validée par des tests unitaires et d'intégration :
+
+### Tests Backend (Pytest)
 ```bash
 cd backend
-source .venv/bin/activate
+source .venv/bin/activate  # ou : uv run pytest
 pytest tests/
 ```
-* **`test_api.py`** : Endpoints REST, isolation stricte des canaux secrets (Row Level Security).
-* **`test_fsm.py`** : Transitions d'états conformes, calcul de fin de partie.
-* **`test_rules.py`** : Validations métier (interdiction d'auto-vote, gestion des égalités, pouvoirs).
-* **`test_context_leak.py`** : Hermétisme des prompts LLM pour garantir qu'aucun rôle secret n'est fuité aux agents Citoyens.
+* **12 tests passés avec succès** couvrant :
+  * La machine à états FSM ([`test_fsm.py`](backend/tests/test_fsm.py)).
+  * Les règles de victoire et pouvoirs spéciaux ([`test_rules.py`](backend/tests/test_rules.py)).
+  * L'absence de fuite contextuelle et l'isolation des rôles ([`test_context_leak.py`](backend/tests/test_context_leak.py)).
+  * L'API REST, la validation des requêtes et l'anti-triche ([`test_api.py`](backend/tests/test_api.py)).
 
-### Validation Frontend (TypeScript & Lint)
+### Validation Frontend (TypeScript & Build)
 ```bash
 cd frontend
-npm run typecheck    # Vérification stricte des types TypeScript
-npm run build        # Validation du build de production Vite
+
+# Vérification du typage strict
+npm run typecheck
+
+# Compilation de production Vite
+npm run build
 ```
 
+---
 
+## 🔑 Variables d'Environnement
+
+| Variable | Description | Exemple / Défaut |
+| :--- | :--- | :--- |
+| `APP_ENV` | Environnement d'exécution | `development` / `production` |
+| `PORT` | Port d'écoute du serveur FastAPI | `8000` |
+| `CORS_ORIGINS` | Origines autorisées pour le frontend | `http://localhost:5173,http://127.0.0.1:5173` |
+| `SUPABASE_URL` | URL de votre instance Supabase | `https://xyz.supabase.co` |
+| `SUPABASE_ANON_KEY` | Clé publique anonyme Supabase | `eyJhb...` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Clé secrète administrative Supabase | `eyJhb...` |
+| `GROQ_API_KEY` | Clé API Groq (Llama 3.1 8B / 70B) | `gsk_...` |
+| `MISTRAL_API_KEY` | Clé API Mistral AI (Mistral Small) | `...` |
+| `GEMINI_API_KEY` | Clé API Google AI Studio (Gemini 1.5 Flash) | `AIzaSy...` |
+| `LLM_TIMEOUT_SECONDS` | Délai maximum par requête LLM avant fallback | `3.5` |
+| `MAX_TOKENS_PER_GAME` | Plafond de tokens autorisés par partie | `50000` |
+| `SLIDING_WINDOW_MESSAGES` | Taille de la fenêtre glissante des messages | `8` |
+| `DEBATE_ROUNDS_PER_DAY` | Nombre d'interventions par joueur au débat | `2` |
+
+---
+
+## 📜 Licence & Propriété Intellectuelle
+
+Projet conçu et développé pour le **Studio Lanterne**. Tous droits réservés.  
+Mécaniques et univers inspirés des jeux de déduction sociale dans le domaine public.
