@@ -478,10 +478,20 @@ async def simuler_tour_ia(partie_id: UUID) -> dict[str, Any]:
             cible_tir = choisir_cible_aleatoire_fallback(partie, garde)
             if cible_tir:
                 executer_tir_garde_du_corps(partie, garde, cible_tir.id)
+                moteur.ajouter_message_systeme(
+                    f"Dernier souffle : {garde.nom_affiche} emporte {cible_tir.nom_affiche} ({cible_tir.role.value}) dans sa chute !"
+                )
                 evenements_tour.append(
                     f"Dernier souffle : {garde.nom_affiche} a abattu {cible_tir.nom_affiche} !"
                 )
-            moteur.reprendre_apres_tir_garde_du_corps(origine_nuit=True)
+        else:
+            garde = next(
+                (j for j in partie.joueurs if j.role == RolePersonnage.GARDE_DU_CORPS),
+                None,
+            )
+
+        origine_nuit = garde.cause_mort != "vote_conseil" if garde else True
+        moteur.reprendre_apres_tir_garde_du_corps(origine_nuit=origine_nuit)
 
     return {
         "phase_executee": phase_depart.value,
@@ -572,6 +582,9 @@ async def executer_action(
             if req.cible_id is None:
                 raise ErreurRegleJeu("Le Garde du Corps doit choisir une cible.")
             cible = executer_tir_garde_du_corps(partie, acteur, req.cible_id)
+            MoteurPartieFSM(partie).ajouter_message_systeme(
+                f"Dernier souffle : {acteur.nom_affiche} emporte {cible.nom_affiche} ({cible.role.value}) dans sa chute !"
+            )
             return {"statut": "tir_effectue", "cible_eliminee": cible.nom_affiche}
         else:
             raise ErreurRegleJeu("Type d'action inconnu.")

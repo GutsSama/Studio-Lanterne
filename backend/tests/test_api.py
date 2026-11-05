@@ -34,3 +34,47 @@ def test_creation_partie_et_anti_triche_canal_secret() -> None:
     assert len(donnees["joueurs"]) == 6
     assert donnees["phase_actuelle"] == "nuit"
 
+
+def test_tir_garde_du_corps_humain_debloque_avancer_tour() -> None:
+    """Vérifie qu'après le tir du Garde du Corps humain via /actions, /avancer-tour reprend la partie."""
+    from uuid import UUID
+    from app.api.routes import depot_parties
+    from app.engine.rules import eliminer_joueur
+
+    resp = client.post(
+        "/api/parties",
+        json={
+            "nom_humain": "Billy",
+            "consentement_ai_act": True,
+            "role_humain_force": "garde_du_corps",
+        },
+    )
+    assert resp.status_code == 201
+    partie_id = resp.json()["id"]
+    partie = depot_parties.obtenir(UUID(partie_id))
+    assert partie is not None
+
+    humain = next(j for j in partie.joueurs if j.est_humain)
+    cible = next(j for j in partie.joueurs_vivants() if j.id != humain.id)
+
+    # Le Garde du Corps meurt pendant la nuit
+    eliminer_joueur(partie, humain, cause_mort="attaque_creatures")
+    assert partie.phase_actuelle.value == "tour_garde_du_corps"
+
+    # Le joueur humain tire via /actions
+    resp_tir = client.post(
+        f"/api/parties/{partie_id}/actions",
+        json={
+            "acteur_id": str(humain.id),
+            "type_action": "garde_du_corps_tirer",
+            "cible_id": str(cible.id),
+        },
+    )
+    assert resp_tir.status_code == 200
+
+    # Le front appelle ensuite /simuler-tour : la partie ne doit plus rester bloquée
+    resp_avancer = client.post(f"/api/parties/{partie_id}/simuler-tour")
+    assert resp_avancer.status_code == 200
+    assert resp_avancer.json()["nouvelle_phase"] in ("debat_jour", "terminee")
+
+
