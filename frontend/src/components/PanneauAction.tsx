@@ -41,10 +41,11 @@ export function calculerCiblage(
   if (
     phase === "tour_alchimiste" &&
     humain.role === "alchimiste" &&
-    infos.potion_mort_disponible &&
-    !actionFaite("alchimiste_empoisonner")
+    (infos.potion_vie_disponible || infos.potion_mort_disponible)
   ) {
-    return { type: "empoisonner", cibles: ids(autresVivants) };
+    // Le panneau reste ouvert tant qu'il reste une potion (même sans potion de Mort, pour pouvoir sauver)
+    const peutEmpoisonner = infos.potion_mort_disponible && !actionFaite("alchimiste_empoisonner");
+    return { type: "empoisonner", cibles: peutEmpoisonner ? ids(autresVivants) : new Set() };
   }
   return vide;
 }
@@ -172,25 +173,37 @@ export function PanneauAction({ jeu, partie, humain, ciblage, cible, reinitialis
       break;
     case "empoisonner": {
       const victime = partie.joueurs.find((j) => j.id === infos.victime_provisoire_nuit_id);
+      const peutSauver =
+        victime && victime.id !== humain?.id && infos.potion_vie_disponible && !jeu.actionFaite("alchimiste_soigner");
+      const peutEmpoisonner = ciblage.cibles.size > 0;
       contenu = (
         <>
           <Consigne
             titre="Laboratoire de l'Alchimiste"
-            texte={victime ? `Les Créatures ont attaqué ${prenom(victime.nom_affiche)}.` : "Personne n'a été attaqué cette nuit."}
+            texte={
+              (victime
+                ? victime.id === humain?.id
+                  ? "Les Créatures t'ont attaqué ! Tu ne peux pas te sauver toi-même."
+                  : `Les Créatures ont attaqué ${prenom(victime.nom_affiche)}.`
+                : "Personne n'a été attaqué cette nuit.") +
+              (peutEmpoisonner ? " Clique sur un joueur pour l'empoisonner." : "")
+            }
           />
-          {victime && infos.potion_vie_disponible && !jeu.actionFaite("alchimiste_soigner") && (
+          {peutSauver && (
             <button type="button" className="bouton bouton-mousse" onClick={() => void jeu.agir("alchimiste_soigner", victime.id)}>
               Sauver {prenom(victime.nom_affiche)}
             </button>
           )}
-          <button
-            type="button"
-            className="bouton bouton-sang"
-            disabled={!cible}
-            onClick={() => cible && void jeu.agir("alchimiste_empoisonner", cible.id).then(reinitialiserCible)}
-          >
-            Empoisonner {nomCible}
-          </button>
+          {peutEmpoisonner && (
+            <button
+              type="button"
+              className="bouton bouton-sang"
+              disabled={!cible}
+              onClick={() => cible && void jeu.agir("alchimiste_empoisonner", cible.id).then(reinitialiserCible)}
+            >
+              Empoisonner {nomCible}
+            </button>
+          )}
           {boutonAvancer("Laisser l'aube venir", "bouton bouton-nuit")}
         </>
       );
@@ -208,7 +221,11 @@ export function PanneauAction({ jeu, partie, humain, ciblage, cible, reinitialis
                   humain?.est_vivant
                     ? humain.role === "citoyen" || humain.role === "garde_du_corps"
                       ? "Tu dors... Des ombres se faufilent entre les maisons."
-                      : "Ton action est faite. Attends l'aube."
+                      : humain.role === "alchimiste"
+                        ? phase === "nuit"
+                          ? "Tu veilles sur tes fioles... Les Créatures choisissent leur proie."
+                          : "Tes potions sont épuisées. Attends l'aube."
+                        : "Ton action est faite. Attends l'aube."
                     : "Tu observes le village depuis l'au-delà."
                 }
               />
