@@ -163,7 +163,6 @@ export function PanneauAction({ jeu, partie, humain, ciblage, cible, reinitialis
               void jeu
                 .agir("garde_du_corps_tirer", cible.id)
                 .then(reinitialiserCible)
-                .then(() => jeu.avancer())
             }
           >
             Tirer sur {nomCible}
