@@ -1,5 +1,7 @@
 """Endpoints REST FastAPI avec filtrage anti-triche et simulation de tours IA."""
 
+import logging
+import random
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -21,6 +23,8 @@ from app.engine.rules import (
 from app.models.enums import CanalMessage, PhasePartie, RolePersonnage, TypeActionJeu
 from app.models.game import EtatPartie, MessagePartie
 from app.services.supabase_service import depot_parties
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["parties"])
 
@@ -524,7 +528,73 @@ async def poster_message(
         tokens_utilises=0,
     )
     partie.messages.append(msg)
-    return msg.model_dump(mode="json")
+    depot_parties.enregistrer_message_supabase(msg)
+
+    reponse_ia_dict: dict[str, Any] | None = None
+
+    # Option 1 (Chat vivant en direct) : Dès que le joueur humain parle, un convive IA réagit
+    if emetteur.est_humain and partie.phase_actuelle != PhasePartie.TERMINEE:
+        ias_vivantes = [j for j in partie.joueurs_vivants() if not j.est_humain]
+        # Dans le canal secret des créatures, seules les créatures vivantes peuvent réagir
+        if req.canal == CanalMessage.CREATURE_SECRET:
+            ias_vivantes = [j for j in ias_vivantes if j.role == RolePersonnage.CREATURE]
+
+        if ias_vivantes:
+            texte_lower = req.contenu.lower()
+            agent_cible = None
+
+            # 1. Vérification si un personnage est nommément interpellé
+            for j in ias_vivantes:
+                prenom = j.nom_affiche.split()[0].lower()
+                if (
+                    prenom in texte_lower
+                    or ("béatrice" in texte_lower and "beatrice" in prenom)
+                    or ("beatrice" in texte_lower and "béatrice" in prenom)
+                    or ("soeur" in texte_lower and "béatrice" in j.nom_affiche.lower())
+                ):
+                    agent_cible = j
+                    break
+
+            # 2. Sinon, Gérard aime monopoliser le débat, ou tirage au sort parmi les convives vivants
+            if not agent_cible:
+                gerard = next(
+                    (j for j in ias_vivantes if "gérard" in j.nom_affiche.lower() or "gerard" in j.nom_affiche.lower()),
+                    None,
+                )
+                agent_cible = gerard if gerard else random.choice(ias_vivantes)
+
+            try:
+                instruction = (
+                    f"Le voyageur {emetteur.nom_affiche} vient de dire à la table : « {req.contenu} ». "
+                    f"Réponds-lui directement et sans détour selon ton tempérament ({agent_cible.nom_affiche}) "
+                    f"en 1 ou 2 phrases percutantes, incarnées et immersives."
+                )
+                rep_ia, tokens = await interroger_agent_ia(partie, agent_cible, instruction)
+                msg_ia = MessagePartie(
+                    partie_id=partie.id,
+                    joueur_emetteur_id=agent_cible.id,
+                    nom_emetteur=agent_cible.nom_affiche,
+                    canal=req.canal,
+                    tour=partie.tour_actuel,
+                    phase=partie.phase_actuelle,
+                    contenu=rep_ia.declaration_publique,
+                    est_ia=True,
+                    tokens_utilises=tokens,
+                )
+                partie.messages.append(msg_ia)
+                depot_parties.enregistrer_message_supabase(msg_ia)
+                reponse_ia_dict = msg_ia.model_dump(mode="json")
+            except Exception as exc:
+                logger.warning(
+                    "Échec de la réponse instantanée de l'IA %s : %s",
+                    agent_cible.nom_affiche,
+                    exc,
+                )
+
+    reponse_payload = msg.model_dump(mode="json")
+    reponse_payload["message"] = msg.model_dump(mode="json")
+    reponse_payload["reponse_ia"] = reponse_ia_dict
+    return reponse_payload
 
 
 @router.post("/parties/{partie_id}/votes")
