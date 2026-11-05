@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { EtatPartiePublic, JoueurPublic, PhasePartie } from "../types/game";
 import { LIBELLES_CAMP, LIBELLES_PHASE, LIBELLES_ROLE, estPhaseNocturne, fournisseur, prenom } from "../game/libelles";
 import { iconeLune, iconeSoleil } from "../pixel/icones";
-import { IconeRole, ImagePixel, SpritePersonnage } from "./Sprites";
+import { IconeRole, ImagePixel, LoupAnime, SpritePersonnage } from "./Sprites";
 
 // ─── HUD supérieur ──────────────────────────────────────────────────────────
 
@@ -156,6 +156,11 @@ export function FinDePartie({
   return (
     <div className="fixed inset-0 z-9999 flex items-center justify-center bg-encre/85 backdrop-blur-xs p-4">
       <div className="panneau animate-apparaitre flex w-full max-w-2xl flex-col items-center gap-5 p-8 text-center shadow-2xl">
+        {camp === "creatures" && (
+          <div className="w-20 drop-shadow-[0_0_15px_rgba(180,32,42,0.9)]">
+            <LoupAnime className="w-full" />
+          </div>
+        )}
         <div className={`font-pixel text-[clamp(18px,3vw,30px)] ${victoire ? "text-lanterne" : "text-sang"}`}>
           {victoire ? "Victoire !" : "Défaite..."}
         </div>

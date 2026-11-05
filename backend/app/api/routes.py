@@ -303,6 +303,7 @@ async def simuler_tour_ia(partie_id: UUID) -> dict[str, Any]:
     if phase_depart == PhasePartie.TERMINEE:
         return {
             "phase_executee": phase_depart.value,
+            "nouvelle_phase": phase_depart.value,
             "evenements": ["La partie est déjà terminée."],
             "etat": serialiser_partie_pour_humain(partie),
         }
@@ -582,9 +583,12 @@ async def executer_action(
             if req.cible_id is None:
                 raise ErreurRegleJeu("Le Garde du Corps doit choisir une cible.")
             cible = executer_tir_garde_du_corps(partie, acteur, req.cible_id)
-            MoteurPartieFSM(partie).ajouter_message_systeme(
+            moteur = MoteurPartieFSM(partie)
+            moteur.ajouter_message_systeme(
                 f"Dernier souffle : {acteur.nom_affiche} emporte {cible.nom_affiche} ({cible.role.value}) dans sa chute !"
             )
+            origine_nuit = acteur.cause_mort != "vote_conseil"
+            moteur.reprendre_apres_tir_garde_du_corps(origine_nuit=origine_nuit)
             return {"statut": "tir_effectue", "cible_eliminee": cible.nom_affiche}
         else:
             raise ErreurRegleJeu("Type d'action inconnu.")

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import type { JoueurPublic, MessagePartie, UUID } from "../types/game";
+import type { CampPartie, JoueurPublic, MessagePartie, UUID } from "../types/game";
 import { LIBELLES_CAUSE_MORT, prenom } from "../game/libelles";
-import { IconeRole, SpritePersonnage } from "./Sprites";
+import { IconeRole, LoupAnime, SpritePersonnage } from "./Sprites";
 
 /**
  * Positions des 6 sièges autour de la place (en % de l'image 2752×1536) :
@@ -19,6 +19,8 @@ const SIEGES: ReadonlyArray<{ x: number; y: number }> = [
 interface Props {
   joueurs: JoueurPublic[];
   nuit: boolean;
+  /** Camp vainqueur si la partie est terminée. */
+  campVainqueur?: CampPartie | null;
   /** Dernier message affiché, pour la bulle de dialogue. */
   dernierMessage: MessagePartie | null;
   ciblesPossibles: ReadonlySet<UUID>;
@@ -72,6 +74,7 @@ function FeuDeCamp({ nuit }: { nuit: boolean }) {
 export function ScenePartie({
   joueurs,
   nuit,
+  campVainqueur = null,
   dernierMessage,
   ciblesPossibles,
   cibleSelectionnee,
@@ -81,6 +84,7 @@ export function ScenePartie({
 }: Props) {
   const tries = [...joueurs].sort((a, b) => a.numero_siege - b.numero_siege);
   const bulleVisible = useBulle(dernierMessage);
+  const victoireLoups = campVainqueur === "creatures";
 
   return (
     <div
@@ -99,21 +103,45 @@ export function ScenePartie({
         src="/sprites/villagenuit_propre.jpeg"
         alt="Village Nuit"
         className="absolute inset-0 h-full w-full pixelise select-none transition-opacity duration-[1800ms]"
-        style={{ opacity: nuit ? 1 : 0 }}
+        style={{ opacity: nuit && !victoireLoups ? 1 : 0 }}
       />
 
-      {/* 3. Halo lumineux au sol (uniquement la nuit) */}
+      {/* 2bis. Décor Victoire des Loups (village en ruines et en flammes) */}
+      <img
+        src="/sprites/wolfvictory.jpeg"
+        alt="Victoire des Créatures"
+        className="absolute inset-0 h-full w-full pixelise select-none transition-opacity duration-[2000ms]"
+        style={{ opacity: victoireLoups ? 1 : 0, zIndex: 10 }}
+      />
+
+      {/* 3. Halo lumineux au sol (uniquement la nuit normale) */}
       <div
         className="pointer-events-none absolute inset-0 transition-opacity duration-[1800ms]"
         style={{
-          opacity: nuit ? 0.85 : 0,
+          opacity: nuit && !victoireLoups ? 0.85 : 0,
           background:
             "radial-gradient(ellipse 34% 28% at 50.15% 68%, rgba(244,140,20,0.4), rgba(180,40,10,0.15) 50%, transparent 75%)",
         }}
       />
 
-      {/* 4. Feu de camp animé (uniquement la nuit, calé sur les pierres) */}
-      <FeuDeCamp nuit={nuit} />
+      {/* 4. Feu de camp animé (la nuit hors victoire loups qui a son propre feu dans le décor) */}
+      <FeuDeCamp nuit={nuit && !victoireLoups} />
+
+      {/* 4bis. Loup géant animé au centre en cas de victoire des loups */}
+      {victoireLoups && (
+        <div
+          className="absolute pointer-events-none select-none animate-apparaitre transition-transform duration-1000"
+          style={{
+            left: "50%",
+            top: "84%",
+            width: "18%",
+            transform: "translate(-50%, -100%)",
+            zIndex: 90,
+          }}
+        >
+          <LoupAnime className="w-full drop-shadow-[0_0_20px_rgba(180,32,42,0.8)]" />
+        </div>
+      )}
 
       {/* 5. Les 6 participants disposés sur la place */}
       {tries.map((j, i) => {

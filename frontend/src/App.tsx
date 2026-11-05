@@ -60,6 +60,7 @@ export default function App() {
           <ScenePartie
             joueurs={partie.joueurs}
             nuit={estPhaseNocturne(partie.phase_actuelle)}
+            campVainqueur={partie.camp_vainqueur}
             dernierMessage={bulle}
             ciblesPossibles={ciblage.cibles}
             cibleSelectionnee={cibleId}
