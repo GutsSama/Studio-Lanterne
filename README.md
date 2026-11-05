@@ -186,3 +186,117 @@ supabase/migrations/20261103000000_initial_schema.sql
 # 2. Données initiales (5 personnalités IA et succès)
 supabase/seed.sql
 ```
+
+---
+
+## 🎮 Règles du Jeu & Rôles (Créatures de la Nuit)
+
+Une partie oppose **6 joueurs** (**1 joueur humain** face à **5 agents IA**) répartis secrètement en deux camps rivaux :
+
+### Les 5 Rôles Jouables :
+| Rôle | Camp | Pouvoirs & Spécificités |
+| :--- | :--- | :--- |
+| **L'Inquisiteur** | Citoyens | S'éveille chaque nuit pour sonder l'alignement (`citoyens` ou `creatures`) d'un joueur vivant. |
+| **L'Alchimiste** | Citoyens | Dispose d'une potion de Vie (sauve la victime nocturne, auto-sauvetage interdit) et d'une potion de Mort (élimine un joueur). Usage unique par potion. |
+| **Le Garde du Corps** | Citoyens | S'il est éliminé (de nuit comme de jour), abat immédiatement un joueur vivant de son choix dans son dernier souffle (`tour_garde_du_corps`). |
+| **Le Citoyen** | Citoyens | Dépourvu de pouvoirs nocturnes. S'appuie sur la logique, la rhétorique et l'analyse des votes lors des débats publics. |
+| **La Créature (x2)** | Créatures | Connaît son allié nocturne. Délibère en secret sur le canal `creature_secret` la nuit pour désigner une victime, et dupe le village le jour. |
+
+### Cycle des Phases (FSM Moteur Backend) :
+1. **Nuit (`nuit`) :** Concertation secrète des Créatures + inspection de l'Inquisiteur.
+2. **Tour de l'Alchimiste (`tour_alchimiste`) :** Choix d'utiliser ou non les potions de Vie/Mort.
+3. **Annonce de l'Aube :** Résolution des morts nocturnes par le moteur backend et tir éventuel du Garde du Corps (`tour_garde_du_corps`).
+4. **Débat Public (`debat_jour`) :** Deux tours de table publics où chaque survivant exprime ses soupçons dans le canal `village_public`.
+5. **Vote du Conseil (`vote_jour`) :** Vote à la majorité relative pour éliminer un suspect. En cas d'égalité stricte, aucun joueur n'est éliminé.
+
+### Conditions de Fin de Partie :
+* **Victoire des Citoyens :** Toutes les Créatures de la Nuit ont été éliminées (`0` créature restante).
+* **Victoire des Créatures :** Parité numérique atteinte (`nb_creatures >= nb_citoyens`).
+* **Égalité :** Tous les joueurs meurent simultanément (`0` survivant).
+
+---
+
+## ⚙️ Guide d'Installation & Démarrage Rapide
+
+### Prérequis
+* **Node.js** (v20+ recommandé) et **npm**
+* **Python** (3.11 ou supérieur)
+* Un projet **Supabase** (gratuit) ou une instance PostgreSQL locale
+* Une clé d'accès LLM (**Groq**, **Mistral** ou **Gemini**)
+
+---
+
+### 1. Configuration des Variables d'Environnement
+Dupliquez le fichier d'exemple dans le dossier `backend` :
+```bash
+cp backend/.env.example backend/.env
+```
+Renseignez vos clés d'API dans `backend/.env` :
+```env
+SUPABASE_URL=https://votre-projet.supabase.co
+SUPABASE_ANON_KEY=votre-cle-anon
+SUPABASE_SERVICE_ROLE_KEY=votre-cle-service-role
+GROQ_API_KEY=gsk_...
+MISTRAL_API_KEY=...
+GEMINI_API_KEY=...
+```
+
+---
+
+### 2. Démarrer le Backend (FastAPI)
+```bash
+# Se placer dans le répertoire backend
+cd backend
+
+# Créer et activer l'environnement virtuel
+python3 -m venv .venv
+source .venv/bin/activate  # Sur Windows : .venv\Scripts\activate
+
+# Installer les dépendances
+pip install -r requirements.txt
+
+# Lancer le serveur backend
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+> Le serveur backend est accessible sur **http://127.0.0.1:8000** et sa documentation interactive OpenAPI Swagger sur **http://127.0.0.1:8000/docs**.
+
+---
+
+### 3. Démarrer le Frontend (React / Vite)
+Dans un nouveau terminal :
+```bash
+# Se placer dans le répertoire frontend
+cd frontend
+
+# Installer les dépendances (dont polices et composants UI)
+npm install
+
+# Démarrer le serveur Vite
+npm run dev
+```
+> L'application est jouable sur **http://127.0.0.1:5173**. Vite redirige automatiquement les appels `/api` vers le backend sur le port `8000`.
+
+---
+
+## 🧪 Tests & Assurance Qualité
+
+### Tests Automatisés Backend (Pytest)
+La suite de tests vérifie l'intégrité de la machine à états (FSM), la prévention des fuites de contexte (anti-triche), et la conformité des règles du jeu :
+```bash
+cd backend
+source .venv/bin/activate
+pytest tests/
+```
+* **`test_api.py`** : Endpoints REST, isolation stricte des canaux secrets (Row Level Security).
+* **`test_fsm.py`** : Transitions d'états conformes, calcul de fin de partie.
+* **`test_rules.py`** : Validations métier (interdiction d'auto-vote, gestion des égalités, pouvoirs).
+* **`test_context_leak.py`** : Hermétisme des prompts LLM pour garantir qu'aucun rôle secret n'est fuité aux agents Citoyens.
+
+### Validation Frontend (TypeScript & Lint)
+```bash
+cd frontend
+npm run typecheck    # Vérification stricte des types TypeScript
+npm run build        # Validation du build de production Vite
+```
+
+
