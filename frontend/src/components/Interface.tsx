@@ -152,6 +152,7 @@ export function FinDePartie({
   const camp = partie.camp_vainqueur;
   const campHumain = humain?.role === "creature" ? "creatures" : "citoyens";
   const victoire = camp === campHumain;
+  const survivantsCitoyens = partie.joueurs.filter((j) => j.est_vivant && j.role !== "creature");
 
   return (
     <div className="fixed inset-0 z-9999 flex items-center justify-center bg-encre/85 backdrop-blur-xs p-4">
@@ -159,6 +160,16 @@ export function FinDePartie({
         {camp === "creatures" && (
           <div className="w-20 drop-shadow-[0_0_15px_rgba(180,32,42,0.9)]">
             <LoupAnime className="w-full" />
+          </div>
+        )}
+        {camp === "citoyens" && survivantsCitoyens.length > 0 && (
+          <div className="flex items-end justify-center gap-3 drop-shadow-[0_0_15px_rgba(244,180,27,0.8)]">
+            {survivantsCitoyens.map((s) => (
+              <div key={s.id} className="flex flex-col items-center">
+                <SpritePersonnage joueur={s} victoire className="w-16 sm:w-20" />
+                <span className="font-pixel text-[7px] text-lanterne mt-0.5">{prenom(s.nom_affiche)}</span>
+              </div>
+            ))}
           </div>
         )}
         <div className={`font-pixel text-[clamp(18px,3vw,30px)] ${victoire ? "text-lanterne" : "text-sang"}`}>
@@ -170,9 +181,17 @@ export function FinDePartie({
             .sort((a, b) => a.numero_siege - b.numero_siege)
             .map((j) => (
               <div key={j.id} className="flex flex-col items-center gap-1">
-                <SpritePersonnage joueur={j} tombeSiMort={false} className="w-16" />
+                <SpritePersonnage
+                  joueur={j}
+                  mortSiMort={true}
+                  victoire={camp === "citoyens" && j.est_vivant && j.role !== "creature"}
+                  loupSiCreature={camp === "creatures" && j.role === "creature" && j.est_vivant}
+                  className="w-16"
+                />
                 <IconeRole role={j.role} className="h-6 w-6" />
-                <div className="font-pixel text-[7px] leading-relaxed">{prenom(j.nom_affiche)}</div>
+                <div className={`font-pixel text-[7px] leading-relaxed ${!j.est_vivant ? "line-through opacity-70" : ""}`}>
+                  {prenom(j.nom_affiche)}
+                </div>
                 <div className="text-[15px] leading-none text-parchemin-sombre">{j.role ? LIBELLES_ROLE[j.role].nom : "?"}</div>
               </div>
             ))}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { CampPartie, JoueurPublic, MessagePartie, UUID } from "../types/game";
 import { LIBELLES_CAUSE_MORT, prenom } from "../game/libelles";
-import { IconeRole, LoupAnime, SpritePersonnage } from "./Sprites";
+import { IconeRole, SpritePersonnage } from "./Sprites";
 
 /**
  * Positions des 6 sièges autour de la place (en % de l'image 2752×1536) :
@@ -85,6 +85,7 @@ export function ScenePartie({
   const tries = [...joueurs].sort((a, b) => a.numero_siege - b.numero_siege);
   const bulleVisible = useBulle(dernierMessage);
   const victoireLoups = campVainqueur === "creatures";
+  const victoireCitoyens = campVainqueur === "citoyens";
 
   return (
     <div
@@ -127,22 +128,6 @@ export function ScenePartie({
       {/* 4. Feu de camp animé (la nuit hors victoire loups qui a son propre feu dans le décor) */}
       <FeuDeCamp nuit={nuit && !victoireLoups} />
 
-      {/* 4bis. Loup géant animé au centre en cas de victoire des loups */}
-      {victoireLoups && (
-        <div
-          className="absolute pointer-events-none select-none animate-apparaitre transition-transform duration-1000"
-          style={{
-            left: "50%",
-            top: "84%",
-            width: "18%",
-            transform: "translate(-50%, -100%)",
-            zIndex: 90,
-          }}
-        >
-          <LoupAnime className="w-full drop-shadow-[0_0_20px_rgba(180,32,42,0.8)]" />
-        </div>
-      )}
-
       {/* 5. Les 6 participants disposés sur la place */}
       {tries.map((j, i) => {
         const siege = SIEGES[i] ?? { x: 50, y: 50 };
@@ -161,7 +146,7 @@ export function ScenePartie({
             style={{
               left: `${siege.x}%`,
               top: `${siege.y}%`,
-              width: "10%",
+              width: j.est_vivant ? (victoireLoups && j.role === "creature" ? "10%" : "8.8%") : "10%",
               transform: "translate(-50%, -100%)",
               zIndex: Math.round(siege.y),
             }}
@@ -169,7 +154,9 @@ export function ScenePartie({
             {/* Bulle de dialogue */}
             {parle && dernierMessage && (
               <div
-                className="bulle animate-apparaitre absolute bottom-full left-1/2 mb-3 -translate-x-1/2 w-[220%] px-2 py-1 text-left font-terminal text-[clamp(12px,1.25vw,18px)] leading-tight shadow-md"
+                className={`bulle animate-apparaitre absolute bottom-full left-1/2 mb-3 -translate-x-1/2 ${
+                  j.est_vivant ? "w-[245%]" : "w-[220%]"
+                } px-2 py-1 text-left font-terminal text-[clamp(12px,1.25vw,18px)] leading-tight shadow-md`}
                 style={{ zIndex: 200 }}
               >
                 {dernierMessage.contenu.length > 110 ? `${dernierMessage.contenu.slice(0, 110)}…` : dernierMessage.contenu}
@@ -195,7 +182,12 @@ export function ScenePartie({
                 ciblable ? "group-hover:-translate-y-1 group-hover:drop-shadow-[0_0_6px_#f4b41b]" : ""
               } ${selectionne ? "drop-shadow-[0_0_8px_#b4202a]" : ""} ${parle ? "scale-110" : ""}`}
             >
-              <SpritePersonnage joueur={j} className="w-full" />
+              <SpritePersonnage
+                joueur={j}
+                victoire={victoireCitoyens && j.est_vivant && j.role !== "creature"}
+                loupSiCreature={victoireLoups && j.role === "creature" && j.est_vivant}
+                className="w-full"
+              />
             </div>
 
             {/* Plaque du nom */}
