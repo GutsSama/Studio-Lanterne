@@ -72,9 +72,67 @@ def test_tir_garde_du_corps_humain_debloque_avancer_tour() -> None:
     )
     assert resp_tir.status_code == 200
 
-    # Le front appelle ensuite /simuler-tour : la partie ne doit plus rester bloquée
-    resp_avancer = client.post(f"/api/parties/{partie_id}/simuler-tour")
-    assert resp_avancer.status_code == 200
-    assert resp_avancer.json()["nouvelle_phase"] in ("debat_jour", "terminee")
+    # Le tir fait immédiatement reprendre la partie (plus de blocage en tour_garde_du_corps)
+    etat = client.get(f"/api/parties/{partie_id}").json()
+    assert etat["phase_actuelle"] in ("debat_jour", "terminee")
 
 
+def test_alchimiste_humain_garde_la_main_avant_l_aube() -> None:
+    """Vérifie que la nuit s'arrête sur tour_alchimiste quand l'Alchimiste est humain."""
+    from uuid import UUID
+    from app.api.routes import depot_parties
+    from app.engine.fsm import MoteurPartieFSM
+
+    resp = client.post(
+        "/api/parties",
+        json={"nom_humain": "Alchi", "consentement_ai_act": True, "role_humain_force": "alchimiste"},
+    )
+    partie_id = resp.json()["id"]
+    partie = depot_parties.obtenir(UUID(partie_id))
+    assert partie is not None
+
+    MoteurPartieFSM(partie).clore_votes_creatures_vers_alchimiste()
+    assert partie.phase_actuelle.value == "tour_alchimiste"
+
+    # Le prochain /simuler-tour résout l'Aube
+    resp_aube = client.post(f"/api/parties/{partie_id}/simuler-tour")
+    assert resp_aube.json()["nouvelle_phase"] in ("debat_jour", "tour_garde_du_corps", "terminee")
+
+
+
+
+def test_alchimiste_ia_sauve_la_victime(monkeypatch) -> None:
+    """Vérifie que l'Alchimiste IA peut utiliser sa potion de Vie pendant la nuit simulée."""
+    from uuid import UUID
+    from app.api import routes
+    from app.models.ai_schema import ActionTechniqueIA, ReponseAgentIA
+    from app.models.enums import PhasePartie, RolePersonnage, TypeActionJeu
+
+    resp = client.post(
+        "/api/parties",
+        json={"nom_humain": "Citoyen", "consentement_ai_act": True, "role_humain_force": "citoyen"},
+    )
+    partie_id = resp.json()["id"]
+    partie = routes.depot_parties.obtenir(UUID(partie_id))
+    assert partie is not None
+    alchimiste = next(j for j in partie.joueurs if j.role == RolePersonnage.ALCHIMISTE)
+    humain = next(j for j in partie.joueurs if j.est_humain)
+
+    async def fausse_ia(partie_, agent, consigne):  # noqa: ANN001
+        if agent.role == RolePersonnage.ALCHIMISTE:
+            action = ActionTechniqueIA(
+                phase=PhasePartie.TOUR_ALCHIMISTE, pouvoir_utilise=TypeActionJeu.ALCHIMISTE_SOIGNER
+            )
+        elif agent.role == RolePersonnage.CREATURE:
+            # Les Créatures attaquent le joueur humain
+            action = ActionTechniqueIA(phase=PhasePartie.NUIT, cible_id=str(humain.id))
+        else:
+            action = ActionTechniqueIA(phase=PhasePartie.NUIT)
+        return ReponseAgentIA(analyse_interne="test", action_technique=action), 0
+
+    monkeypatch.setattr(routes, "interroger_agent_ia", fausse_ia)
+
+    rep = client.post(f"/api/parties/{partie_id}/simuler-tour").json()
+    assert alchimiste.memoire_ia.potion_vie_disponible is False
+    assert humain.est_vivant  # sauvé par l'Alchimiste IA
+    assert rep["nouvelle_phase"] == "debat_jour"
