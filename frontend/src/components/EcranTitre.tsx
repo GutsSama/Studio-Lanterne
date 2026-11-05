@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { ROLES_PERSONNAGE, type ArchetypeIA, type JoueurPublic, type RolePersonnage } from "../types/game";
 import { LIBELLES_ROLE } from "../game/libelles";
-import { SpritePersonnage } from "./Sprites";
+import { SpritePersonnage, definirGenreJoueur, obtenirGenreJoueur, type GenreJoueur } from "./Sprites";
 
 const PRESENTATION: ReadonlyArray<{ archetype: ArchetypeIA; nom: string; trait: string }> = [
   { archetype: "mauvais_joueur", nom: "Gérard", trait: "Le Râleur" },
@@ -35,9 +35,15 @@ interface Props {
 
 export function EcranTitre({ occupe, erreur, onCommencer }: Props) {
   const [nom, setNom] = useState("");
+  const [genre, setGenreState] = useState<GenreJoueur>(obtenirGenreJoueur);
   const [consentement, setConsentement] = useState(false);
   const [roleForce, setRoleForce] = useState<RolePersonnage | "">("");
   const nomValide = nom.trim().length >= 2 && nom.trim().length <= 30;
+
+  const choisirGenre = (nouveauGenre: GenreJoueur) => {
+    definirGenreJoueur(nouveauGenre);
+    setGenreState(nouveauGenre);
+  };
 
   const soumettre = (e: FormEvent) => {
     e.preventDefault();
@@ -78,11 +84,33 @@ export function EcranTitre({ occupe, erreur, onCommencer }: Props) {
 
         <div className="panneau flex w-full max-w-lg flex-col gap-4 p-6">
           <label className="flex flex-col gap-2">
-            <span className="font-pixel text-[9px] uppercase text-lanterne">Ton nom de villageois</span>
-            <div className="flex items-center gap-3">
-              <SpritePersonnage joueur={joueurFictif("humain", nom || "?", null, true)} className="w-14 shrink-0" />
+            <span className="font-pixel text-[9px] uppercase text-lanterne">Ton villageois (nom & avatar)</span>
+            <div className="flex items-center gap-4">
+              <div className="flex flex-col items-center gap-2 shrink-0">
+                <SpritePersonnage joueur={joueurFictif("humain", nom || "?", null, true)} className="w-16" />
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    onClick={() => choisirGenre("masculin")}
+                    className={`px-2 py-1 font-pixel text-[8px] uppercase transition-colors ${
+                      genre === "masculin" ? "bg-lanterne text-encre font-bold shadow-sm" : "bg-nuit-700 text-os hover:bg-nuit-600"
+                    }`}
+                  >
+                    Homme
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => choisirGenre("femme")}
+                    className={`px-2 py-1 font-pixel text-[8px] uppercase transition-colors ${
+                      genre === "femme" ? "bg-lanterne text-encre font-bold shadow-sm" : "bg-nuit-700 text-os hover:bg-nuit-600"
+                    }`}
+                  >
+                    Femme
+                  </button>
+                </div>
+              </div>
               <input
-                className="champ w-full"
+                className="champ w-full self-center"
                 value={nom}
                 onChange={(e) => setNom(e.target.value)}
                 minLength={2}
@@ -132,4 +160,3 @@ export function EcranTitre({ occupe, erreur, onCommencer }: Props) {
     </div>
   );
 }
-
