@@ -37,3 +37,4 @@ export interface SuccesInfo {
   debloque?: boolean;
   debloque_le?: string;
 }
+

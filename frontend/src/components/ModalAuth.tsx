@@ -203,3 +203,4 @@ export function ModalAuth({ ouvert, onFermer, onConnecte }: Props) {
     </div>
   );
 }
+
