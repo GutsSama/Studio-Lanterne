@@ -3,6 +3,8 @@ import { ROLES_PERSONNAGE, type ArchetypeIA, type JoueurPublic, type RolePersonn
 import { LIBELLES_ROLE } from "../game/libelles";
 import { SpritePersonnage, definirGenreJoueur, obtenirGenreJoueur, type GenreJoueur } from "./Sprites";
 import { ModalAuth } from "./ModalAuth";
+import { ModalProfil } from "./ModalProfil";
+import { audio } from "../game/audio";
 import { supabase } from "../api/supabase";
 
 const PRESENTATION: ReadonlyArray<{ archetype: ArchetypeIA; nom: string; trait: string }> = [
@@ -42,6 +44,8 @@ export function EcranTitre({ occupe, erreur, onCommencer }: Props) {
   const [roleForce, setRoleForce] = useState<RolePersonnage | "">("");
   const [utilisateur, setUtilisateur] = useState<{ id: string; email?: string; nom: string } | null>(null);
   const [modalAuthOuvert, setModalAuthOuvert] = useState(false);
+  const [modalProfilOuvert, setModalProfilOuvert] = useState(false);
+  const [sonMuet, setSonMuet] = useState(audio.estMuet());
 
   const nomValide = nom.trim().length >= 2 && nom.trim().length <= 30;
 
@@ -91,8 +95,28 @@ export function EcranTitre({ occupe, erreur, onCommencer }: Props) {
       />
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-nuit-900/40 to-nuit-900" />
 
-      {/* Barre d'authentification supérieure */}
-      <div className="absolute top-4 right-4 z-20">
+      {/* Barre d'actions supérieure (Son, Profil & Authentification) */}
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            const muet = audio.basculerMuet();
+            setSonMuet(muet);
+          }}
+          className="bouton bouton-nuit py-1.5! px-2.5! font-pixel text-[10px]! border border-lanterne/40 hover:border-lanterne"
+          title={sonMuet ? "Activer le son rétro" : "Couper le son"}
+        >
+          {sonMuet ? "🔇" : "🔊"}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setModalProfilOuvert(true)}
+          className="bouton bouton-nuit py-1.5! px-3! font-pixel text-[9px]! text-lanterne border border-lanterne/40 hover:border-lanterne"
+        >
+          🏆 Profil & Succès
+        </button>
+
         {utilisateur ? (
           <div className="panneau flex items-center gap-3 bg-nuit-900/90 px-3 py-1.5 font-pixel text-[9px]">
             <span className="text-lanterne">👤 {utilisateur.nom}</span>
@@ -221,6 +245,13 @@ export function EcranTitre({ occupe, erreur, onCommencer }: Props) {
           setNom(u.nom);
           setConsentement(true);
         }}
+      />
+
+      <ModalProfil
+        ouvert={modalProfilOuvert}
+        joueurId={utilisateur?.id}
+        nomAffiche={utilisateur?.nom}
+        onFermer={() => setModalProfilOuvert(false)}
       />
     </div>
   );

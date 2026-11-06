@@ -3,6 +3,8 @@ import type { EtatPartiePublic, JoueurPublic, PhasePartie } from "../types/game"
 import { LIBELLES_CAMP, LIBELLES_PHASE, LIBELLES_ROLE, estPhaseNocturne, fournisseur, prenom } from "../game/libelles";
 import { iconeLune, iconeSoleil } from "../pixel/icones";
 import { IconeRole, ImagePixel, LoupAnime, SpritePersonnage } from "./Sprites";
+import { audio } from "../game/audio";
+import { ModalProfil } from "./ModalProfil";
 
 // ─── HUD supérieur ──────────────────────────────────────────────────────────
 
@@ -16,13 +18,21 @@ export function Hud({
   partie,
   secondesRestantes = null,
   onQuitter,
+  onOuvrirProfil,
 }: {
   partie: EtatPartiePublic;
   secondesRestantes?: number | null;
   onQuitter: () => void;
+  onOuvrirProfil?: () => void;
 }) {
+  const [muet, setMuet] = useState(audio.estMuet());
   const nuit = estPhaseNocturne(partie.phase_actuelle);
   const urgent = secondesRestantes !== null && secondesRestantes <= 10;
+
+  const basculerSon = () => {
+    setMuet(audio.basculerMuet());
+  };
+
   return (
     <header className="panneau flex flex-wrap items-center gap-x-6 gap-y-2 px-5 py-3">
       <div className="font-pixel text-[11px] leading-relaxed text-lanterne">
@@ -46,7 +56,25 @@ export function Hud({
           <span>{formaterTimer(secondesRestantes)}</span>
         </div>
       )}
-      <div className="ml-auto flex items-center gap-4 text-parchemin-sombre" title="Suivi LiteLLM de la consommation">
+      <div className="ml-auto flex items-center gap-3 text-parchemin-sombre" title="Suivi LiteLLM de la consommation">
+        <button
+          type="button"
+          onClick={basculerSon}
+          className="bouton bouton-nuit py-1.5! px-2.5! text-xs"
+          title={muet ? "Activer les sons rétro" : "Couper le son"}
+        >
+          {muet ? "🔇" : "🔊"}
+        </button>
+        {onOuvrirProfil && (
+          <button
+            type="button"
+            className="bouton bouton-nuit py-1.5! px-2.5! font-pixel text-[9px]! text-lanterne border border-lanterne/40 hover:border-lanterne"
+            onClick={onOuvrirProfil}
+            title="Consulter vos statistiques et succès"
+          >
+            🏆 Succès
+          </button>
+        )}
         <span>⚡ {partie.tokens_total_utilises.toLocaleString("fr-FR")} tokens</span>
         <span>💰 ${partie.cout_estime_usd.toFixed(4)}</span>
         <button type="button" className="bouton bouton-nuit py-1.5!" onClick={onQuitter}>
@@ -140,6 +168,11 @@ export function BannierePhase({ phase, tour }: { phase: PhasePartie; tour: numbe
     precedent.current = cle;
     if (phase === "tour_alchimiste") return;
     const nuit = estPhaseNocturne(phase);
+    if (nuit) {
+      audio.gongNuit();
+    } else if (phase === "debat_jour") {
+      audio.clocheAube();
+    }
     setAffichee({
       cle: Date.now(),
       texte: phase === "terminee" ? "Fin" : `${nuit ? "Nuit" : "Jour"} ${tour}`,
@@ -169,16 +202,35 @@ export function FinDePartie({
   humain,
   onRejouer,
   onFermer,
+  onOuvrirProfil,
 }: {
   partie: EtatPartiePublic;
   humain: JoueurPublic | null;
   onRejouer: () => void;
   onFermer: () => void;
+  onOuvrirProfil?: () => void;
 }) {
+  const [modalProfilLocal, setModalProfilLocal] = useState(false);
   const camp = partie.camp_vainqueur;
   const campHumain = humain?.role === "creature" ? "creatures" : "citoyens";
   const victoire = camp === campHumain;
   const survivantsCitoyens = partie.joueurs.filter((j) => j.est_vivant && j.role !== "creature");
+
+  useEffect(() => {
+    if (victoire) {
+      audio.victoire();
+    } else {
+      audio.defaite();
+    }
+  }, [victoire]);
+
+  const gererClicProfil = () => {
+    if (onOuvrirProfil) {
+      onOuvrirProfil();
+    } else {
+      setModalProfilLocal(true);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-9999 flex items-center justify-center bg-encre/85 backdrop-blur-xs p-4">
@@ -234,15 +286,29 @@ export function FinDePartie({
         <div className="text-parchemin-sombre">
           {partie.tokens_total_utilises.toLocaleString("fr-FR")} tokens · ${partie.cout_estime_usd.toFixed(4)}
         </div>
-        <div className="flex gap-4">
-          <button type="button" className="bouton bouton-nuit" onClick={onFermer}>
-            Revoir la partie
+        <div className="flex flex-wrap justify-center gap-3">
+          <button
+            type="button"
+            className="bouton bouton-action font-pixel text-[10px]!"
+            onClick={gererClicProfil}
+          >
+            🏆 Voir mes Statistiques & Trophées
           </button>
-          <button type="button" className="bouton" onClick={onRejouer}>
+          <button type="button" className="bouton bouton-nuit text-[10px]!" onClick={onFermer}>
+            Revoir le plateau
+          </button>
+          <button type="button" className="bouton text-[10px]!" onClick={onRejouer}>
             Nouvelle partie
           </button>
         </div>
       </div>
+
+      <ModalProfil
+        ouvert={modalProfilLocal}
+        joueurId={humain?.id || "00000000-0000-0000-0000-000000000001"}
+        nomAffiche={humain?.nom_affiche}
+        onFermer={() => setModalProfilLocal(false)}
+      />
     </div>
   );
 }
