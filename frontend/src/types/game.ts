@@ -155,6 +155,35 @@ export interface SimulerTourReponse {
   etat: EtatPartiePublic;
 }
 
+export interface ProfilComplet {
+  profil: {
+    id: UUID;
+    nom_utilisateur: string;
+    avatar_url: string;
+    consentement_ai_act: boolean;
+    cree_le: string;
+  } | null;
+  statistiques: {
+    joueur_id: UUID;
+    parties_jouees: number;
+    parties_gagnees: number;
+    parties_perdues: number;
+    victoires_citoyens: number;
+    victoires_creatures: number;
+    temps_de_jeu_total_secondes: number;
+  };
+  succes: Array<{
+    id: UUID;
+    code: string;
+    titre: string;
+    description: string;
+    icone_badge: string;
+    points: number;
+    debloque: boolean;
+    debloque_le?: string | null;
+  }>;
+}
+
 // ─── Messages WebSocket (`/ws/parties/{id}`) ────────────────────────────────
 
 export type MessageServeurWS =

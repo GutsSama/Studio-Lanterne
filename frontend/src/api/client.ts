@@ -8,6 +8,7 @@ import type {
   UUID,
   VotePartie,
   VoterRequete,
+  ProfilComplet,
 } from "../types/game";
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
@@ -63,5 +64,11 @@ export const api = {
 
   agir: (id: UUID, req: ActionSpecialeRequete) =>
     requete<unknown>(`/api/parties/${id}/actions`, { method: "POST", body: JSON.stringify(req) }),
+
+  obtenirProfil: (joueurId: UUID) =>
+    requete<ProfilComplet>(`/api/profils/${joueurId}`),
+
+  listerSucces: () =>
+    requete<Array<{ id: UUID; code: string; titre: string; description: string; points: number }>>("/api/succes"),
 };
 

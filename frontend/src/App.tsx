@@ -7,12 +7,14 @@ import { ScenePartie } from "./components/ScenePartie";
 import { Chat } from "./components/Chat";
 import { PanneauAction, calculerCiblage } from "./components/PanneauAction";
 import { BannierePhase, CarteRole, FinDePartie, Hud, ListeJoueurs } from "./components/Interface";
+import { ModalProfil } from "./components/ModalProfil";
 
 export default function App() {
   const jeu = useJeu();
   const { partie, humain } = jeu;
   const [cibleId, setCibleId] = useState<UUID | null>(null);
   const [finMasquee, setFinMasquee] = useState(false);
+  const [modalProfilOuvert, setModalProfilOuvert] = useState(false);
 
   const ciblage = useMemo(
     () => (partie ? calculerCiblage(partie, humain, jeu.actionFaite) : { type: null, cibles: new Set<UUID>() }),
@@ -31,7 +33,13 @@ export default function App() {
   }
 
   if (!partie) {
-    return <EcranTitre occupe={jeu.operation !== null} erreur={jeu.erreur} onCommencer={(n, r) => void jeu.creerPartie(n, r)} />;
+    return (
+      <EcranTitre
+        occupe={jeu.operation !== null}
+        erreur={jeu.erreur}
+        onCommencer={(n, r, h) => void jeu.creerPartie(n, r, h)}
+      />
+    );
   }
 
   const messagesAffiches = partie.messages.slice(0, jeu.nbMessagesAffiches);
@@ -53,7 +61,12 @@ export default function App() {
 
   return (
     <div className="mx-auto flex h-full max-w-[1600px] flex-col gap-5 p-4">
-      <Hud partie={partie} secondesRestantes={jeu.secondesRestantes} onQuitter={jeu.quitter} />
+      <Hud
+        partie={partie}
+        secondesRestantes={jeu.secondesRestantes}
+        onQuitter={jeu.quitter}
+        onOuvrirProfil={() => setModalProfilOuvert(true)}
+      />
       <BannierePhase phase={partie.phase_actuelle} tour={partie.tour_actuel} />
 
       <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
@@ -95,8 +108,21 @@ export default function App() {
       </div>
 
       {terminee && !finMasquee && (
-        <FinDePartie partie={partie} humain={humain} onRejouer={jeu.quitter} onFermer={() => setFinMasquee(true)} />
+        <FinDePartie
+          partie={partie}
+          humain={humain}
+          onRejouer={jeu.quitter}
+          onFermer={() => setFinMasquee(true)}
+          onOuvrirProfil={() => setModalProfilOuvert(true)}
+        />
       )}
+
+      <ModalProfil
+        ouvert={modalProfilOuvert}
+        joueurId={humain?.id}
+        nomAffiche={humain?.nom_affiche}
+        onFermer={() => setModalProfilOuvert(false)}
+      />
     </div>
   );
 }

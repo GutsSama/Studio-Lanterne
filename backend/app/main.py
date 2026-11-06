@@ -283,6 +283,35 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 """
 
 
+from pathlib import Path
+
+PLATEAU_HTML_PATH = (
+    Path(__file__).resolve().parent.parent.parent
+    / "roadmap"
+    / "studio_lantern"
+    / "maquette_stitch_plateau.html"
+)
+
+
+@app.get("/", response_class=HTMLResponse, tags=["interface"])
+@app.get("/plateau", response_class=HTMLResponse, tags=["interface"])
+async def afficher_plateau_jeu() -> HTMLResponse:
+    """Affiche l'interface 2D du jeu (maquette interactive Stitch)."""
+    if PLATEAU_HTML_PATH.exists():
+        return HTMLResponse(content=PLATEAU_HTML_PATH.read_text(encoding="utf-8"))
+    alt_path = (
+        Path(__file__).resolve().parent.parent.parent
+        / "studio_lantern"
+        / "maquette_stitch_plateau.html"
+    )
+    if alt_path.exists():
+        return HTMLResponse(content=alt_path.read_text(encoding="utf-8"))
+    return HTMLResponse(
+        content="<h1 style='color:white;background:#0f172a;padding:2rem;'>Fichier maquette_stitch_plateau.html non trouvé.</h1>",
+        status_code=404,
+    )
+
+
 @app.get("/dashboard-llm", response_class=HTMLResponse, tags=["observabilite"])
 async def afficher_dashboard_llm() -> HTMLResponse:
     """Page web interactive de suivi des coûts, tokens et latence LiteLLM."""
