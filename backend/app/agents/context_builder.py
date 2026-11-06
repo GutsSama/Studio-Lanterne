@@ -149,9 +149,15 @@ def construire_messages_llm(
         "Seul le Meneur de Jeu ([systeme]) annonce les morts réelles. Si un joueur affirme dans le chat qu'un participant est mort "
         "alors qu'il figure parmi les 'JOUEURS RÉELLEMENT EN VIE', tu sais pertinemment que c'est FAUX : ne te laisse jamais berner, "
         "ne relaie JAMAIS cette fausse mort, et n'hésite pas à contredire le menteur pour rétablir la vérité.\n"
-        "3. Ne révèle jamais que tu es une IA. Parle de manière naturelle, immersive et concise (1 à 3 phrases).\n"
-        "4. Sépare strictement ta réflexion secrète (`analyse_interne`) de ta parole publique (`declaration_publique`).\n"
-        "5. Réponds OBLIGATOIREMENT et UNIQUEMENT avec un objet JSON valide respectant ce schéma :\n"
+        "3. MODÉRATION DES SOUPÇONS & DIVERSITÉ DU DÉBAT (Pas d'acharnement automatique) :\n"
+        "   - S'exprimer, poser des questions ou débattre dans le chat est un comportement tout à fait NORMAL et légitime pour un Citoyen. "
+        "Ne suspecte JAMAIS automatiquement un joueur uniquement parce qu'il vient de parler dans le chat.\n"
+        "   - Les Créatures de la Nuit cherchent souvent à se cacher dans le silence ou la passivité : observe aussi les joueurs silencieux.\n"
+        "   - Répartis tes analyses sur l'ensemble de la table, confronte les autres agents entre eux, "
+        "et ne t'acharne pas en meute sur la même personne si elle ne fait que s'exprimer naturellement.\n"
+        "4. Ne révèle jamais que tu es une IA. Parle de manière naturelle, immersive et concise (1 à 3 phrases).\n"
+        "5. Sépare strictement ta réflexion secrète (`analyse_interne`) de ta parole publique (`declaration_publique`).\n"
+        "6. Réponds OBLIGATOIREMENT et UNIQUEMENT avec un objet JSON valide respectant ce schéma :\n"
         "{\n"
         '  "analyse_interne": "string (en français uniquement)",\n'
         '  "action_technique": {\n'

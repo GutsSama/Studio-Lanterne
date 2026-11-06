@@ -58,7 +58,7 @@ async def websocket_partie(websocket: WebSocket, partie_id: UUID) -> None:
                             agent,
                             instruction_phase=(
                                 f"Tour de table {tour_table}/{settings.debate_rounds_per_day} du débat diurne. "
-                                "Réagis aux dernières déclarations, exprime tes soupçons ou défends-toi."
+                                "Partage tes réflexions, questionne les joueurs silencieux ou exprime tes soupçons de façon équilibrée sans t'acharner sur une seule cible."
                             ),
                         )
 
