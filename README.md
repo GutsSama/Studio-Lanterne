@@ -421,7 +421,11 @@ cd backend
 source .venv/bin/activate  # ou : uv run pytest
 pytest tests/
 ```
-* **12 tests passés avec succès** couvrant :
+* **35 tests passés avec succès** couvrant :
+  * La résilience et le parsing robuste des réponses LLM Markdown/JSON/Think ([`test_llm_resilience.py`](backend/tests/test_llm_resilience.py)).
+  * La conformité stricte des prompts (langue française, anti-mensonge, anti-acharnement) ([`test_prompts_conformite.py`](backend/tests/test_prompts_conformite.py)).
+  * Les conditions de victoire, parité numérique et égalités ([`test_conditions_victoire.py`](backend/tests/test_conditions_victoire.py)).
+  * La protection active anti-injection de prompt et assainissement des messages ([`test_anti_injection.py`](backend/tests/test_anti_injection.py)).
   * La machine à états FSM ([`test_fsm.py`](backend/tests/test_fsm.py)).
   * Les règles de victoire et pouvoirs spéciaux ([`test_rules.py`](backend/tests/test_rules.py)).
   * L'absence de fuite contextuelle et l'isolation des rôles ([`test_context_leak.py`](backend/tests/test_context_leak.py)).
