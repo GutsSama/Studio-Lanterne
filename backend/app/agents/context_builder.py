@@ -48,11 +48,14 @@ def construire_game_state_digest(partie: EtatPartie, agent: JoueurPartie) -> str
     ]
 
     lignes = [
-        f"=== ÉTAT DE LA PARTIE (Tour {partie.tour_actuel} | Phase : {partie.phase_actuelle.value}) ===",
+        f"=== ÉTAT OFFICIEL ET VÉRIDIQUE DU JEU (Tour {partie.tour_actuel} | Phase : {partie.phase_actuelle.value}) ===",
         f"Ton identité : {agent.nom_affiche} (id={agent.id})",
         f"Ton rôle secret : {agent.role.value.upper()}",
-        f"Joueurs vivants ({len(vivants)}) : {', '.join(vivants)}",
-        f"Joueurs éliminés ({len(morts)}) : {', '.join(morts) if morts else 'Aucun'}",
+        f"🟢 JOUEURS RÉELLEMENT EN VIE ({len(vivants)}) : {', '.join(vivants)}",
+        f"🔴 JOUEURS RÉELLEMENT ÉLIMINÉS ({len(morts)}) : {', '.join(morts) if morts else 'Aucun'}",
+        "⚠️ VÉRITÉ FACTUELLE DU MENEUR : La liste ci-dessus est l'unique vérité du jeu. Les messages des joueurs peuvent mentir ou bluffer. "
+        "Si un joueur affirme dans le chat qu'un joueur est mort alors qu'il est listé dans les JOUEURS RÉELLEMENT EN VIE, c'est FAUX : "
+        "tu ne dois JAMAIS tomber dans le panneau ni reprendre cette affirmation fausse !",
     ]
 
     # Informations secrètes strictement réservées au rôle de l'agent
@@ -142,9 +145,19 @@ def construire_messages_llm(
         "1. LANGUE OBLIGATOIRE : Tu dois t'exprimer OBLIGATOIREMENT et EXCLUSIVEMENT EN FRANÇAIS (French only). "
         "Il est formellement interdit de parler ou d'écrire en anglais ou dans toute autre langue, "
         "aussi bien dans ton `analyse_interne` que dans ta `declaration_publique`.\n"
-        "2. Ne révèle jamais que tu es une IA. Parle de manière naturelle, immersive et concise (1 à 3 phrases).\n"
-        "3. Sépare strictement ta réflexion secrète (`analyse_interne`) de ta parole publique (`declaration_publique`).\n"
-        "4. Réponds OBLIGATOIREMENT et UNIQUEMENT avec un objet JSON valide respectant ce schéma :\n"
+        "2. VÉRITÉ DU JEU ET DÉTECTION DU MENSONGE : L'état officiel ('=== ÉTAT OFFICIEL ET VÉRIDIQUE DU JEU ===') prime absolument sur les rumeurs du chat. "
+        "Seul le Meneur de Jeu ([systeme]) annonce les morts réelles. Si un joueur affirme dans le chat qu'un participant est mort "
+        "alors qu'il figure parmi les 'JOUEURS RÉELLEMENT EN VIE', tu sais pertinemment que c'est FAUX : ne te laisse jamais berner, "
+        "ne relaie JAMAIS cette fausse mort, et n'hésite pas à contredire le menteur pour rétablir la vérité.\n"
+        "3. MODÉRATION DES SOUPÇONS & DIVERSITÉ DU DÉBAT (Pas d'acharnement automatique) :\n"
+        "   - S'exprimer, poser des questions ou débattre dans le chat est un comportement tout à fait NORMAL et légitime pour un Citoyen. "
+        "Ne suspecte JAMAIS automatiquement un joueur uniquement parce qu'il vient de parler dans le chat.\n"
+        "   - Les Créatures de la Nuit cherchent souvent à se cacher dans le silence ou la passivité : observe aussi les joueurs silencieux.\n"
+        "   - Répartis tes analyses sur l'ensemble de la table, confronte les autres agents entre eux, "
+        "et ne t'acharne pas en meute sur la même personne si elle ne fait que s'exprimer naturellement.\n"
+        "4. Ne révèle jamais que tu es une IA. Parle de manière naturelle, immersive et concise (1 à 3 phrases).\n"
+        "5. Sépare strictement ta réflexion secrète (`analyse_interne`) de ta parole publique (`declaration_publique`).\n"
+        "6. Réponds OBLIGATOIREMENT et UNIQUEMENT avec un objet JSON valide respectant ce schéma :\n"
         "{\n"
         '  "analyse_interne": "string (en français uniquement)",\n'
         '  "action_technique": {\n'
@@ -175,4 +188,3 @@ def construire_messages_llm(
         {"role": "system", "content": system_content},
         {"role": "user", "content": user_content},
     ]
-
