@@ -40,19 +40,20 @@ export default function App() {
   const dernier = messagesAffiches[messagesAffiches.length - 1];
   const bulle = dernier && dernier.id === dernierMessage?.id ? dernierMessage : null;
 
-  // Pendant que le serveur interroge les IA, on montre qui « réfléchit »
-  const quiParlent = new Set<UUID>(
-    jeu.operation && !estPhaseNocturne(partie.phase_actuelle)
+  // Pendant que le serveur interroge une ou plusieurs IA, on montre précisément qui « réfléchit »
+  const quiParlent = new Set<UUID>([
+    ...(partie.ia_en_cours_ids ?? []),
+    ...(jeu.operation && !estPhaseNocturne(partie.phase_actuelle)
       ? partie.joueurs.filter((j) => !j.est_humain && j.est_vivant).map((j) => j.id)
-      : [],
-  );
+      : []),
+  ]);
 
   const cible = partie.joueurs.find((j) => j.id === cibleId) ?? null;
   const terminee = partie.phase_actuelle === "terminee" && !jeu.revelationEnCours;
 
   return (
     <div className="mx-auto flex h-full max-w-[1600px] flex-col gap-5 p-4">
-      <Hud partie={partie} onQuitter={jeu.quitter} />
+      <Hud partie={partie} secondesRestantes={jeu.secondesRestantes} onQuitter={jeu.quitter} />
       <BannierePhase phase={partie.phase_actuelle} tour={partie.tour_actuel} />
 
       <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">

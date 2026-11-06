@@ -6,8 +6,23 @@ import { IconeRole, ImagePixel, LoupAnime, SpritePersonnage } from "./Sprites";
 
 // ─── HUD supérieur ──────────────────────────────────────────────────────────
 
-export function Hud({ partie, onQuitter }: { partie: EtatPartiePublic; onQuitter: () => void }) {
+function formaterTimer(secondes: number): string {
+  const m = Math.floor(secondes / 60);
+  const s = secondes % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+export function Hud({
+  partie,
+  secondesRestantes = null,
+  onQuitter,
+}: {
+  partie: EtatPartiePublic;
+  secondesRestantes?: number | null;
+  onQuitter: () => void;
+}) {
   const nuit = estPhaseNocturne(partie.phase_actuelle);
+  const urgent = secondesRestantes !== null && secondesRestantes <= 10;
   return (
     <header className="panneau flex flex-wrap items-center gap-x-6 gap-y-2 px-5 py-3">
       <div className="font-pixel text-[11px] leading-relaxed text-lanterne">
@@ -20,6 +35,17 @@ export function Hud({ partie, onQuitter }: { partie: EtatPartiePublic; onQuitter
         </span>
         <span className="text-parchemin-sombre">— {LIBELLES_PHASE[partie.phase_actuelle]}</span>
       </div>
+      {secondesRestantes !== null && (
+        <div
+          className={`flex items-center gap-1.5 px-2.5 py-1 font-pixel text-[11px] ${
+            urgent ? "bg-sang/30 text-sang animate-pulse" : "bg-nuit-900 text-lanterne"
+          }`}
+          title="Temps restant pour cette phase"
+        >
+          <span>⏳</span>
+          <span>{formaterTimer(secondesRestantes)}</span>
+        </div>
+      )}
       <div className="ml-auto flex items-center gap-4 text-parchemin-sombre" title="Suivi LiteLLM de la consommation">
         <span>⚡ {partie.tokens_total_utilises.toLocaleString("fr-FR")} tokens</span>
         <span>💰 ${partie.cout_estime_usd.toFixed(4)}</span>
