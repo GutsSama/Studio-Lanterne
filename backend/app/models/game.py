@@ -142,6 +142,10 @@ class EtatPartie(BaseModel):
         default=None,
         description="Si le Garde du Corps vient de mourir, son ID en attente de son tir final.",
     )
+    ia_en_cours_ids: list[UUID] = Field(
+        default_factory=list,
+        description="IDs des agents IA actuellement en train de rédiger une réponse asynchrone.",
+    )
     creee_le: datetime = Field(default_factory=utc_now)
     terminee_le: datetime | None = None
 

@@ -136,3 +136,35 @@ def test_alchimiste_ia_sauve_la_victime(monkeypatch) -> None:
     assert alchimiste.memoire_ia.potion_vie_disponible is False
     assert humain.est_vivant  # sauvé par l'Alchimiste IA
     assert rep["nouvelle_phase"] == "debat_jour"
+
+
+def test_selection_ia_ciblees_par_prenom() -> None:
+    """Vérifie que `selectionner_ia_ciblees` cible bien les IA mentionnées dans le message."""
+    from uuid import UUID
+    from app.api.routes import depot_parties, selectionner_ia_ciblees
+
+    resp = client.post(
+        "/api/parties",
+        json={"nom_humain": "Billy", "consentement_ai_act": True},
+    )
+    partie_id = resp.json()["id"]
+    partie = depot_parties.obtenir(UUID(partie_id))
+    assert partie is not None
+
+    # 1. Message ciblant explicitement Elena
+    cibles_elena = selectionner_ia_ciblees(partie, "Elena, pourquoi tu restes silencieuse ?")
+    assert len(cibles_elena) == 1
+    assert "elena" in cibles_elena[0].nom_affiche.lower()
+
+    # 2. Message ciblant deux IA (Bob et Gérard sans accent)
+    cibles_deux = selectionner_ia_ciblees(partie, "Je pense que Bob et Gerard complotent ensemble !")
+    noms = [j.nom_affiche.lower() for j in cibles_deux]
+    assert len(cibles_deux) == 2
+    assert any("bob" in n for n in noms)
+    assert any("gérard" in n or "gerard" in n for n in noms)
+
+    # 3. Message général sans prénom : retourne 1 IA vivante
+    cibles_defaut = selectionner_ia_ciblees(partie, "Je suis innocent, faites-moi confiance !")
+    assert len(cibles_defaut) == 1
+    assert not cibles_defaut[0].est_humain
+

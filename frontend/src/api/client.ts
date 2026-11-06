@@ -46,6 +46,9 @@ export const api = {
 
   obtenirPartie: (id: UUID) => requete<EtatPartiePublic>(`/api/parties/${id}`),
 
+  initierPhase: (id: UUID) =>
+    requete<EtatPartiePublic>(`/api/parties/${id}/initier-phase`, { method: "POST" }),
+
   simulerTour: (id: UUID) =>
     requete<SimulerTourReponse>(`/api/parties/${id}/simuler-tour`, { method: "POST" }),
 

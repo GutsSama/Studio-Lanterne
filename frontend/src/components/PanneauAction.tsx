@@ -89,7 +89,14 @@ export function PanneauAction({ jeu, partie, humain, ciblage, cible, reinitialis
   }
 
   const boutonAvancer = (libelle: string, style = "bouton") => (
-    <button type="button" className={style} disabled={jeu.revelationEnCours} onClick={() => void jeu.avancer()}>
+    <button
+      type="button"
+      className={style}
+      onClick={() => {
+        if (jeu.revelationEnCours) jeu.toutAfficher();
+        void jeu.avancer();
+      }}
+    >
       {libelle}
     </button>
   );
@@ -119,10 +126,21 @@ export function PanneauAction({ jeu, partie, humain, ciblage, cible, reinitialis
         </>
       );
       break;
-    case "devorer":
+    case "devorer": {
+      const maProie = partie.joueurs.find((j) => j.id === infos.ma_cible_nuit_id);
+      const proieAllie = partie.joueurs.find((j) => j.id === infos.cible_allie_nuit_id);
+      const resumeProie = [
+        maProie ? `Ton choix : ${prenom(maProie.nom_affiche)}` : "Choisis une proie sur la carte",
+        proieAllie ? `Alliée : ${prenom(proieAllie.nom_affiche)}` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
       contenu = (
         <>
-          <Consigne titre="Chasse nocturne" texte="Choisis la proie que ta meute dévorera cette nuit." />
+          <Consigne
+            titre="Chasse nocturne (45s)"
+            texte={`Discute dans l'onglet Créatures avec ton alliée. (${resumeProie})`}
+          />
           <button
             type="button"
             className="bouton bouton-sang"
@@ -131,10 +149,11 @@ export function PanneauAction({ jeu, partie, humain, ciblage, cible, reinitialis
           >
             Dévorer {nomCible}
           </button>
-          {boutonAvancer("Laisser faire l'alliée", "bouton bouton-nuit")}
+          {boutonAvancer("Valider la chasse ☀", "bouton bouton-nuit")}
         </>
       );
       break;
+    }
     case "voter":
       contenu = (
         <>
@@ -238,15 +257,15 @@ export function PanneauAction({ jeu, partie, humain, ciblage, cible, reinitialis
           contenu = (
             <>
               <Consigne
-                titre="Débat du village"
+                titre="Débat du village (90s)"
                 texte={
                   humain?.est_vivant
-                    ? "Écris dans le chat pour accuser ou te défendre, puis laisse les IA répondre."
+                    ? "Discute en direct dans le chat : cite le prénom d'une IA pour qu'elle te réponde du tac au tac !"
                     : "Les vivants débattent de ton sort passé..."
                 }
               />
               {passerRevelation}
-              {boutonAvancer("Donner la parole aux IA")}
+              {boutonAvancer("Passer au vote ⚖")}
             </>
           );
           break;
