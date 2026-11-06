@@ -158,8 +158,16 @@ export function FinDePartie({
     <div className="fixed inset-0 z-9999 flex items-center justify-center bg-encre/85 backdrop-blur-xs p-4">
       <div className="panneau animate-apparaitre flex w-full max-w-2xl flex-col items-center gap-5 p-8 text-center shadow-2xl">
         {camp === "creatures" && (
-          <div className="w-20 drop-shadow-[0_0_15px_rgba(180,32,42,0.9)]">
-            <LoupAnime className="w-full" />
+          <div className="flex items-end justify-center gap-4">
+            <div className="w-20 drop-shadow-[0_0_15px_rgba(180,32,42,0.9)]">
+              <LoupAnime className="w-full" />
+            </div>
+            {survivantsCitoyens.map((s) => (
+              <div key={s.id} className="flex flex-col items-center drop-shadow-[0_0_12px_rgba(180,32,42,0.6)]">
+                <SpritePersonnage joueur={s} effraye className="w-16 sm:w-20" />
+                <span className="font-pixel text-[7px] text-sang mt-0.5">{prenom(s.nom_affiche)}</span>
+              </div>
+            ))}
           </div>
         )}
         {camp === "citoyens" && survivantsCitoyens.length > 0 && (
@@ -176,7 +184,7 @@ export function FinDePartie({
           {victoire ? "Victoire !" : "Défaite..."}
         </div>
         <div className="text-[24px]">{camp ? LIBELLES_CAMP[camp] : ""}</div>
-        <div className="grid w-full grid-cols-3 gap-4 sm:grid-cols-6">
+        <div className="grid w-full grid-cols-3 gap-4 sm:grid-cols-6 items-end">
           {[...partie.joueurs]
             .sort((a, b) => a.numero_siege - b.numero_siege)
             .map((j) => (
@@ -185,6 +193,7 @@ export function FinDePartie({
                   joueur={j}
                   mortSiMort={true}
                   victoire={camp === "citoyens" && j.est_vivant && j.role !== "creature"}
+                  effraye={camp === "creatures" && j.est_vivant && j.role !== "creature"}
                   loupSiCreature={camp === "creatures" && j.role === "creature" && j.est_vivant}
                   className="w-16"
                 />
