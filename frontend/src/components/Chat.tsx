@@ -78,6 +78,14 @@ export function Chat({ partie, humain, nbMessagesAffiches, occupe, onEnvoyer }: 
   }, [visibles.length, onglet]);
 
   const phase = partie.phase_actuelle;
+  useEffect(() => {
+    if (phase === "nuit" && estCreature && !estMort) {
+      setOnglet("secret");
+    } else if (phase === "debat_jour" || phase === "vote_jour") {
+      setOnglet("village");
+    }
+  }, [phase, estCreature, estMort]);
+
   const peutEcrire =
     !!humain &&
     !occupe &&
@@ -89,12 +97,12 @@ export function Chat({ partie, humain, nbMessagesAffiches, occupe, onEnvoyer }: 
     onglet === "village"
       ? humain?.est_vivant
         ? phase === "debat_jour"
-          ? "Accuse, défends-toi, bluffe..."
+          ? "Interpelle une IA par son prénom ou défends-toi..."
           : "Le village ne parle que pendant le débat."
         : "Les morts ne parlent plus au village."
       : onglet === "secret"
         ? phase === "nuit"
-          ? "Murmure à ton alliée Créature..."
+          ? "Murmure à ton alliée Créature (ping-pong)..."
           : "Le canal secret s'ouvre la nuit."
         : "Parle aux autres fantômes...";
 

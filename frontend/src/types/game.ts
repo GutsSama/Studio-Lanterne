@@ -101,6 +101,9 @@ export interface InformationsRoleHumain {
   victime_provisoire_nuit_id?: UUID | null;
   /** Garde du Corps. */
   doit_tirer?: boolean;
+  /** Créature de la Nuit : cibles nocturnes actuelles. */
+  ma_cible_nuit_id?: UUID | null;
+  cible_allie_nuit_id?: UUID | null;
 }
 
 /** État de la partie filtré pour l'humain. */
@@ -115,6 +118,7 @@ export interface EtatPartiePublic {
   joueurs: JoueurPublic[];
   messages: MessagePartie[];
   informations_role_humain: InformationsRoleHumain;
+  ia_en_cours_ids?: UUID[];
 }
 
 // ─── Requêtes / Réponses API ────────────────────────────────────────────────

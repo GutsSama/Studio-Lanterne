@@ -1,6 +1,9 @@
 """Endpoints REST FastAPI avec filtrage anti-triche et simulation de tours IA."""
 
+import asyncio
+import random
 from typing import Any
+import unicodedata
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, HTTPException
@@ -19,10 +22,177 @@ from app.engine.rules import (
     executer_tir_garde_du_corps,
 )
 from app.models.enums import CanalMessage, PhasePartie, RolePersonnage, TypeActionJeu
-from app.models.game import EtatPartie, MessagePartie
+from app.models.game import EtatPartie, JoueurPartie, MessagePartie
 from app.services.supabase_service import depot_parties
 
 router = APIRouter(prefix="/api", tags=["parties"])
+
+# Suivi des tâches d'animation initiales déjà lancées par (partie_id, tour, phase)
+_phases_initiees: set[str] = set()
+
+
+def _normaliser_texte(texte: str) -> str:
+    """Supprime les accents et met en minuscules pour la détection de prénoms."""
+    sans_accents = "".join(
+        c for c in unicodedata.normalize("NFD", texte) if unicodedata.category(c) != "Mn"
+    )
+    return sans_accents.lower()
+
+
+def _mots_cles_joueur(joueur: JoueurPartie) -> list[str]:
+    """Extrait les mots-clés (prénom, surnom) permettant d'identifier un joueur dans un message."""
+    mots_ignores = {"le", "la", "les", "de", "du", "des", "sr", "soeur", "sœur"}
+    bruts = _normaliser_texte(joueur.nom_affiche.replace("œ", "oe")).split()
+    cles = [m for m in bruts if len(m) >= 3 and m not in mots_ignores]
+    return cles or [_normaliser_texte(joueur.nom_affiche)]
+
+
+def selectionner_ia_ciblees(
+    partie: EtatPartie, contenu: str, max_ia: int = 2
+) -> list[JoueurPartie]:
+    """Sélectionne les IA vivantes ciblées par le message du joueur humain.
+
+    - Si 1 ou plusieurs IA sont nommées dans le message, ce sont elles qui répondent (max `max_ia`).
+    - Si aucune IA n'est nommée, choisit l'IA qui a le moins parlé durant ce tour (ou celle qui vient de parler).
+    """
+    ia_vivantes = [j for j in partie.joueurs_vivants() if not j.est_humain]
+    if not ia_vivantes:
+        return []
+
+    texte_norm = _normaliser_texte(contenu.replace("œ", "oe"))
+    mentionnees = [
+        j
+        for j in ia_vivantes
+        if any(cle in texte_norm for cle in _mots_cles_joueur(j))
+    ]
+    if mentionnees:
+        return mentionnees[:max_ia]
+
+    # Aucune IA explicitement nommée : choisir 1 IA vivante (priorité à celles ayant le moins parlé ce tour)
+    compte_paroles: dict[UUID, int] = {j.id: 0 for j in ia_vivantes}
+    for m in partie.messages:
+        if (
+            m.tour == partie.tour_actuel
+            and m.phase == PhasePartie.DEBAT_JOUR
+            and m.joueur_emetteur_id in compte_paroles
+        ):
+            compte_paroles[m.joueur_emetteur_id] += 1
+
+    candidats = list(ia_vivantes)
+    random.shuffle(candidats)
+    candidats.sort(key=lambda j: compte_paroles[j.id])
+    return candidats[:1]
+
+
+async def _interroger_et_publier_jour(
+    partie: EtatPartie, agent: JoueurPartie, consigne: str
+) -> None:
+    """Interroge un agent IA unique pendant le débat diurne et publie sa réponse dès qu'elle est prête."""
+    tour_depart = partie.tour_actuel
+    if (
+        partie.phase_actuelle != PhasePartie.DEBAT_JOUR
+        or not agent.est_vivant
+        or agent.id in partie.ia_en_cours_ids
+    ):
+        return
+
+    partie.ia_en_cours_ids.append(agent.id)
+    try:
+        rep_ia, tokens = await interroger_agent_ia(partie, agent, consigne)
+        if (
+            partie.phase_actuelle == PhasePartie.DEBAT_JOUR
+            and partie.tour_actuel == tour_depart
+            and agent.est_vivant
+            and rep_ia.declaration_publique
+        ):
+            msg = MessagePartie(
+                partie_id=partie.id,
+                joueur_emetteur_id=agent.id,
+                nom_emetteur=agent.nom_affiche,
+                canal=CanalMessage.VILLAGE_PUBLIC,
+                tour=partie.tour_actuel,
+                phase=PhasePartie.DEBAT_JOUR,
+                contenu=rep_ia.declaration_publique,
+                est_ia=True,
+                tokens_utilises=tokens,
+            )
+            partie.messages.append(msg)
+    finally:
+        if agent.id in partie.ia_en_cours_ids:
+            partie.ia_en_cours_ids.remove(agent.id)
+
+
+async def _interroger_et_publier_creature_nuit(
+    partie: EtatPartie, creature: JoueurPartie, consigne: str
+) -> None:
+    """Interroge le coéquipier Créature IA la nuit pour discuter en ping-pong et ajuster sa cible."""
+    tour_depart = partie.tour_actuel
+    if (
+        partie.phase_actuelle != PhasePartie.NUIT
+        or not creature.est_vivant
+        or creature.role != RolePersonnage.CREATURE
+        or creature.id in partie.ia_en_cours_ids
+    ):
+        return
+
+    partie.ia_en_cours_ids.append(creature.id)
+    try:
+        rep_creat, tokens_c = await interroger_agent_ia(partie, creature, consigne)
+        if (
+            partie.phase_actuelle != PhasePartie.NUIT
+            or partie.tour_actuel != tour_depart
+            or not creature.est_vivant
+        ):
+            return
+
+        if rep_creat.declaration_publique:
+            msg_secret = MessagePartie(
+                partie_id=partie.id,
+                joueur_emetteur_id=creature.id,
+                nom_emetteur=creature.nom_affiche,
+                canal=CanalMessage.CREATURE_SECRET,
+                tour=partie.tour_actuel,
+                phase=PhasePartie.NUIT,
+                contenu=rep_creat.declaration_publique,
+                est_ia=True,
+                tokens_utilises=tokens_c,
+            )
+            partie.messages.append(msg_secret)
+
+        cible_c = (
+            partie.obtenir_joueur(rep_creat.action_technique.cible_id)
+            if rep_creat.action_technique.cible_id
+            else None
+        )
+        if (
+            not cible_c
+            or not cible_c.est_vivant
+            or cible_c.role == RolePersonnage.CREATURE
+        ):
+            # Si le message du joueur humain mentionne un citoyen vivant, l'IA peut s'y rallier
+            deja_vote = any(
+                v.tour == partie.tour_actuel
+                and v.phase == PhasePartie.NUIT
+                and v.joueur_votant_id == creature.id
+                for v in partie.votes
+            )
+            if not deja_vote:
+                cible_c = choisir_cible_aleatoire_fallback(
+                    partie, creature, exclure_creatures=True
+                )
+        if cible_c:
+            try:
+                enregistrer_vote(
+                    partie,
+                    creature,
+                    cible_c.id,
+                    argumentation=rep_creat.declaration_publique,
+                )
+            except ErreurRegleJeu:
+                pass
+    finally:
+        if creature.id in partie.ia_en_cours_ids:
+            partie.ia_en_cours_ids.remove(creature.id)
 
 
 class CreerPartieRequete(BaseModel):
@@ -133,6 +303,24 @@ def serialiser_partie_pour_humain(partie: EtatPartie) -> dict[str, Any]:
             informations_role_humain["doit_tirer"] = (
                 partie.garde_du_corps_en_attente_id == humain.id
             )
+        elif role_humain == RolePersonnage.CREATURE:
+            votes_nuit = [
+                v
+                for v in partie.votes
+                if v.tour == partie.tour_actuel and v.phase == PhasePartie.NUIT
+            ]
+            mon_vote = next(
+                (v for v in votes_nuit if v.joueur_votant_id == humain.id), None
+            )
+            vote_allie = next(
+                (v for v in votes_nuit if v.joueur_votant_id != humain.id), None
+            )
+            informations_role_humain["ma_cible_nuit_id"] = (
+                str(mon_vote.joueur_cible_id) if mon_vote else None
+            )
+            informations_role_humain["cible_allie_nuit_id"] = (
+                str(vote_allie.joueur_cible_id) if vote_allie else None
+            )
 
     return {
         "id": str(partie.id),
@@ -145,6 +333,7 @@ def serialiser_partie_pour_humain(partie: EtatPartie) -> dict[str, Any]:
         "joueurs": joueurs_publics,
         "messages": messages_autorises,
         "informations_role_humain": informations_role_humain,
+        "ia_en_cours_ids": [str(uid) for uid in partie.ia_en_cours_ids],
     }
 
 
@@ -283,12 +472,65 @@ async def obtenir_partie(partie_id: UUID) -> dict[str, Any]:
     return serialiser_partie_pour_humain(partie)
 
 
+async def _animer_debat_initial(partie: EtatPartie, tour: int) -> None:
+    """Fait réagir progressivement les IA vivantes au début du débat diurne."""
+    await asyncio.sleep(0.5)
+    ia_vivantes = [j for j in partie.joueurs_vivants() if not j.est_humain]
+    random.shuffle(ia_vivantes)
+    for agent in ia_vivantes:
+        if partie.phase_actuelle != PhasePartie.DEBAT_JOUR or partie.tour_actuel != tour:
+            break
+        await _interroger_et_publier_jour(
+            partie,
+            agent,
+            "C'est le début du débat public du jour. Réagis aux morts de la nuit et aux messages précédents en 1 ou 2 phrases.",
+        )
+        await asyncio.sleep(1.0)
+
+
+async def _animer_nuit_initiale(partie: EtatPartie, tour: int) -> None:
+    """Lance la proposition initiale du coéquipier Créature IA au début de la nuit si le joueur humain est Créature."""
+    await asyncio.sleep(0.5)
+    if partie.phase_actuelle != PhasePartie.NUIT or partie.tour_actuel != tour:
+        return
+    humain = next((j for j in partie.joueurs if j.est_humain), None)
+    if not humain or not humain.est_vivant or humain.role != RolePersonnage.CREATURE:
+        return
+
+    for creature in partie.creatures_vivantes():
+        if creature.est_humain:
+            continue
+        await _interroger_et_publier_creature_nuit(
+            partie,
+            creature,
+            f"C'est la nuit {tour}. Propose à ton coéquipier Créature ({humain.nom_affiche}) une cible Citoyen à dévorer dans le canal secret et indique son id ou nom dans cible_id.",
+        )
+
+
+@router.post("/parties/{partie_id}/initier-phase")
+async def initier_phase_interactive(partie_id: UUID) -> dict[str, Any]:
+    """Démarre en tâche de fond les interventions spontanées des IA au début du jour ou de la nuit."""
+    partie = depot_parties.obtenir(partie_id)
+    if partie is None:
+        raise HTTPException(status_code=404, detail="Partie introuvable.")
+
+    cle = f"{partie.id}:{partie.tour_actuel}:{partie.phase_actuelle.value}"
+    if cle not in _phases_initiees:
+        _phases_initiees.add(cle)
+        if partie.phase_actuelle == PhasePartie.DEBAT_JOUR:
+            asyncio.create_task(_animer_debat_initial(partie, partie.tour_actuel))
+        elif partie.phase_actuelle == PhasePartie.NUIT:
+            asyncio.create_task(_animer_nuit_initiale(partie, partie.tour_actuel))
+
+    return serialiser_partie_pour_humain(partie)
+
+
 @router.post("/parties/{partie_id}/simuler-tour")
 async def simuler_tour_ia(partie_id: UUID) -> dict[str, Any]:
     """Fait avancer automatiquement la phase actuelle en interrogeant les 5 agents IA via LiteLLM.
 
     - Si la partie est en `nuit` ou `tour_alchimiste` : exécute les actions nocturnes des IA (Inquisiteur, Créatures, Alchimiste), résout l'Aube et passe à `debat_jour`.
-    - Si la partie est en `debat_jour` : fait parler séquentiellement chaque agent IA vivant dans le chat public, puis passe à `vote_jour`.
+    - Si la partie est en `debat_jour` : clôt le débat (en faisant parler les IA si aucune ne s'est exprimée) et passe à `vote_jour`.
     - Si la partie est en `vote_jour` : fait voter tous les agents IA vivants, dépouille le vote du Conseil et passe à la nuit suivante.
     - Si la partie est en `tour_garde_du_corps` : fait tirer le Garde du Corps et reprend la partie.
     """
@@ -310,8 +552,9 @@ async def simuler_tour_ia(partie_id: UUID) -> dict[str, Any]:
 
     # 1. PHASE DE NUIT -> Actions secrètes IA + Résolution de l'Aube
     if phase_depart in (PhasePartie.NUIT, PhasePartie.TOUR_ALCHIMISTE):
+        partie.ia_en_cours_ids.clear()
         if partie.phase_actuelle == PhasePartie.NUIT:
-            # a) Inquisiteur IA
+            # a) Inquisiteur IA (s'il n'a pas déjà inspecté ce tour-ci)
             inquisiteur = next(
                 (
                     j
@@ -320,7 +563,16 @@ async def simuler_tour_ia(partie_id: UUID) -> dict[str, Any]:
                 ),
                 None,
             )
-            if inquisiteur:
+            deja_inspecte = bool(
+                inquisiteur
+                and any(
+                    a.tour == partie.tour_actuel
+                    and a.joueur_acteur_id == inquisiteur.id
+                    and a.type_action == TypeActionJeu.INQUISITEUR_INSPECTER
+                    for a in partie.actions
+                )
+            )
+            if inquisiteur and not deja_inspecte:
                 rep_inq, _ = await interroger_agent_ia(
                     partie,
                     inquisiteur,
@@ -340,9 +592,17 @@ async def simuler_tour_ia(partie_id: UUID) -> dict[str, Any]:
                     except ErreurRegleJeu:
                         pass
 
-            # b) Créatures de la Nuit IA (discussion secrète + vote nocturne)
+            # b) Créatures de la Nuit IA (si elles n'ont pas déjà voté pendant le ping-pong nocturne)
             for creature in partie.creatures_vivantes():
                 if creature.est_humain:
+                    continue
+                deja_vote = any(
+                    v.tour == partie.tour_actuel
+                    and v.phase == PhasePartie.NUIT
+                    and v.joueur_votant_id == creature.id
+                    for v in partie.votes
+                )
+                if deja_vote:
                     continue
                 rep_creat, tokens_c = await interroger_agent_ia(
                     partie,
@@ -444,7 +704,7 @@ async def simuler_tour_ia(partie_id: UUID) -> dict[str, Any]:
             f"Aube résolue ({len(morts)} éliminé(s)) -> Passage à {partie.phase_actuelle.value}."
         )
 
-    # 2. PHASE DE DÉBAT DIURNE -> Prise de parole séquentielle des IA vivantes
+    # 2. PHASE DE DÉBAT DIURNE -> Clôture vers le vote (ou tour de parole si aucun échange n'a eu lieu)
     elif phase_depart == PhasePartie.DEBAT_JOUR:
         for agent in partie.joueurs_vivants():
             if agent.est_humain:
@@ -553,6 +813,21 @@ async def simuler_tour_ia(partie_id: UUID) -> dict[str, Any]:
     }
 
 
+async def _repondre_aux_cibles_jour(
+    partie: EtatPartie, nom_humain: str, contenu: str, cibles: list[JoueurPartie]
+) -> None:
+    """Fait répondre séquentiellement les IA ciblées par le message du joueur humain."""
+    for agent in cibles:
+        if partie.phase_actuelle != PhasePartie.DEBAT_JOUR:
+            break
+        consigne = (
+            f"Pendant le débat public du village, {nom_humain} vient de dire : « {contenu} ». "
+            f"Réponds-lui directement en 1 ou 2 phrases avec ton style et selon tes intérêts."
+        )
+        await _interroger_et_publier_jour(partie, agent, consigne)
+        await asyncio.sleep(0.4)
+
+
 @router.post("/parties/{partie_id}/messages")
 async def poster_message(
     partie_id: UUID, req: EnvoyerMessageRequete
@@ -586,6 +861,38 @@ async def poster_message(
         tokens_utilises=0,
     )
     partie.messages.append(msg)
+
+    # Déclenchement asynchrone de la réponse des IA ciblées (le jour) ou du coéquipier Loup (la nuit)
+    if emetteur.est_humain and emetteur.est_vivant:
+        if (
+            partie.phase_actuelle == PhasePartie.DEBAT_JOUR
+            and req.canal == CanalMessage.VILLAGE_PUBLIC
+        ):
+            cibles = selectionner_ia_ciblees(partie, req.contenu, max_ia=2)
+            if cibles:
+                asyncio.create_task(
+                    _repondre_aux_cibles_jour(
+                        partie, emetteur.nom_affiche, req.contenu, cibles
+                    )
+                )
+        elif (
+            partie.phase_actuelle == PhasePartie.NUIT
+            and req.canal == CanalMessage.CREATURE_SECRET
+            and emetteur.role == RolePersonnage.CREATURE
+        ):
+            for creature in partie.creatures_vivantes():
+                if not creature.est_humain:
+                    consigne_nuit = (
+                        f"C'est la nuit dans le canal secret des Créatures. Ton coéquipier {emetteur.nom_affiche} "
+                        f"vient de te murmurer : « {req.contenu} ». Réponds-lui directement en 1 ou 2 phrases "
+                        f"pour convenir de la proie Citoyen à dévorer, et indique l'id ou le nom de la cible dans cible_id."
+                    )
+                    asyncio.create_task(
+                        _interroger_et_publier_creature_nuit(
+                            partie, creature, consigne_nuit
+                        )
+                    )
+
     return msg.model_dump(mode="json")
 
 
