@@ -483,7 +483,8 @@ async def _animer_debat_initial(partie: EtatPartie, tour: int) -> None:
         await _interroger_et_publier_jour(
             partie,
             agent,
-            "C'est le début du débat public du jour. Réagis aux morts de la nuit et aux messages précédents en 1 ou 2 phrases.",
+            "C'est le début du débat public du jour. Analyse la situation globale : les morts de la nuit, les comportements suspects et les joueurs silencieux. "
+            "Ne te focalise pas uniquement sur le dernier message envoyé, diversifie tes réflexions et évite l'acharnement sur une seule personne.",
         )
         await asyncio.sleep(1.0)
 
@@ -720,7 +721,8 @@ async def simuler_tour_ia(partie_id: UUID) -> dict[str, Any]:
                 rep_ia, tokens = await interroger_agent_ia(
                     partie,
                     agent,
-                    "C'est le débat public du jour. Réagis aux morts de la nuit et aux messages précédents en 1 ou 2 phrases.",
+                    "C'est le débat public du jour. Analyse la situation globale : les morts de la nuit, les comportements suspects et les joueurs silencieux. "
+                    "Ne te focalise pas uniquement sur le dernier message envoyé, diversifie tes réflexions et évite l'acharnement sur une seule personne.",
                 )
                 msg = MessagePartie(
                     partie_id=partie.id,
@@ -747,7 +749,8 @@ async def simuler_tour_ia(partie_id: UUID) -> dict[str, Any]:
             rep_vote, tokens = await interroger_agent_ia(
                 partie,
                 agent,
-                "C'est l'heure du vote du Conseil ! Choisis obligatoirement un joueur vivant (cible_id) contre qui voter et justifie ton vote dans declaration_publique.",
+                "C'est l'heure du vote du Conseil ! Choisis de façon autonome un suspect parmi TOUS les joueurs vivants (cible_id). "
+                "Ne vote pas contre quelqu'un simplement parce qu'il a pris la parole dans le chat. Fonde ton choix sur une vraie stratégie et justifie ton vote dans declaration_publique.",
             )
             cible_v = (
                 partie.obtenir_joueur(rep_vote.action_technique.cible_id)
