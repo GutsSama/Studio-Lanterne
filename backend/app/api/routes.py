@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException
 import httpx
 from pydantic import BaseModel, Field
 
+from app.agents.context_builder import assainir_message_joueur
 from app.agents.orchestrator import interroger_agent_ia, observabilite_llm
 from app.config import settings
 from app.engine.fsm import MoteurPartieFSM
@@ -557,7 +558,9 @@ async def simuler_tour_ia(partie_id: UUID) -> dict[str, Any]:
     if phase_depart in (PhasePartie.NUIT, PhasePartie.TOUR_ALCHIMISTE):
         partie.ia_en_cours_ids.clear()
         if partie.phase_actuelle == PhasePartie.NUIT:
-            # a) Inquisiteur IA (s'il n'a pas déjà inspecté ce tour-ci)
+            # a & b) Exécution en parallèle (asyncio.gather) de l'Inquisiteur et des Créatures IA
+            taches_nuit: list[tuple[str, JoueurPartie, Any]] = []
+
             inquisiteur = next(
                 (
                     j
@@ -576,26 +579,9 @@ async def simuler_tour_ia(partie_id: UUID) -> dict[str, Any]:
                 )
             )
             if inquisiteur and not deja_inspecte:
-                rep_inq, _ = await interroger_agent_ia(
-                    partie,
-                    inquisiteur,
-                    "C'est la nuit. Choisis un joueur vivant (cible_id) à inspecter avec le pouvoir 'inquisiteur_inspecter'.",
-                )
-                cible_inq = (
-                    partie.obtenir_joueur(rep_inq.action_technique.cible_id)
-                    if rep_inq.action_technique.cible_id
-                    else None
-                )
-                if not cible_inq or not cible_inq.est_vivant or cible_inq.id == inquisiteur.id:
-                    cible_inq = choisir_cible_aleatoire_fallback(partie, inquisiteur)
-                if cible_inq:
-                    try:
-                        executer_inspection_inquisiteur(partie, inquisiteur, cible_inq.id)
-                        evenements_tour.append("L'Inquisiteur a inspecté un joueur dans l'ombre.")
-                    except ErreurRegleJeu:
-                        pass
+                consigne_inq = "C'est la nuit. Choisis un joueur vivant (cible_id) à inspecter avec le pouvoir 'inquisiteur_inspecter'."
+                taches_nuit.append(("inquisiteur", inquisiteur, interroger_agent_ia(partie, inquisiteur, consigne_inq)))
 
-            # b) Créatures de la Nuit IA (si elles n'ont pas déjà voté pendant le ping-pong nocturne)
             for creature in partie.creatures_vivantes():
                 if creature.est_humain:
                     continue
@@ -605,51 +591,76 @@ async def simuler_tour_ia(partie_id: UUID) -> dict[str, Any]:
                     and v.joueur_votant_id == creature.id
                     for v in partie.votes
                 )
-                if deja_vote:
-                    continue
-                rep_creat, tokens_c = await interroger_agent_ia(
-                    partie,
-                    creature,
-                    "C'est la nuit. Propose à ton coéquipier Créature une cible Citoyen à dévorer et indique son id ou nom dans cible_id.",
-                )
-                if rep_creat.declaration_publique:
-                    msg_secret = MessagePartie(
-                        partie_id=partie.id,
-                        joueur_emetteur_id=creature.id,
-                        nom_emetteur=creature.nom_affiche,
-                        canal=CanalMessage.CREATURE_SECRET,
-                        tour=partie.tour_actuel,
-                        phase=PhasePartie.NUIT,
-                        contenu=rep_creat.declaration_publique,
-                        est_ia=True,
-                        tokens_utilises=tokens_c,
-                    )
-                    partie.messages.append(msg_secret)
-                    depot_parties.enregistrer_message_supabase(msg_secret)
+                if not deja_vote:
+                    consigne_creat = "C'est la nuit. Propose à ton coéquipier Créature une cible Citoyen à dévorer et indique son id ou nom dans cible_id."
+                    taches_nuit.append(("creature", creature, interroger_agent_ia(partie, creature, consigne_creat)))
 
-                cible_c = (
-                    partie.obtenir_joueur(rep_creat.action_technique.cible_id)
-                    if rep_creat.action_technique.cible_id
-                    else None
-                )
-                if (
-                    not cible_c
-                    or not cible_c.est_vivant
-                    or cible_c.role == RolePersonnage.CREATURE
-                ):
-                    cible_c = choisir_cible_aleatoire_fallback(
-                        partie, creature, exclure_creatures=True
-                    )
-                if cible_c:
-                    try:
-                        enregistrer_vote(
-                            partie,
-                            creature,
-                            cible_c.id,
-                            argumentation=rep_creat.declaration_publique,
+            if taches_nuit:
+                partie.ia_en_cours_ids = [agent.id for _, agent, _ in taches_nuit]
+                try:
+                    resultats = await asyncio.gather(*(t[2] for t in taches_nuit), return_exceptions=True)
+                finally:
+                    partie.ia_en_cours_ids.clear()
+
+                for (type_role, agent_source, _), res in zip(taches_nuit, resultats):
+                    if isinstance(res, Exception):
+                        continue
+                    rep_ia, tokens = res
+
+                    if type_role == "inquisiteur":
+                        cible_inq = (
+                            partie.obtenir_joueur(rep_ia.action_technique.cible_id)
+                            if rep_ia.action_technique.cible_id
+                            else None
                         )
-                    except ErreurRegleJeu:
-                        pass
+                        if not cible_inq or not cible_inq.est_vivant or cible_inq.id == agent_source.id:
+                            cible_inq = choisir_cible_aleatoire_fallback(partie, agent_source)
+                        if cible_inq:
+                            try:
+                                executer_inspection_inquisiteur(partie, agent_source, cible_inq.id)
+                                evenements_tour.append("L'Inquisiteur a inspecté un joueur dans l'ombre.")
+                            except ErreurRegleJeu:
+                                pass
+
+                    elif type_role == "creature":
+                        if rep_ia.declaration_publique:
+                            msg_secret = MessagePartie(
+                                partie_id=partie.id,
+                                joueur_emetteur_id=agent_source.id,
+                                nom_emetteur=agent_source.nom_affiche,
+                                canal=CanalMessage.CREATURE_SECRET,
+                                tour=partie.tour_actuel,
+                                phase=PhasePartie.NUIT,
+                                contenu=rep_ia.declaration_publique,
+                                est_ia=True,
+                                tokens_utilises=tokens,
+                            )
+                            partie.messages.append(msg_secret)
+                            depot_parties.enregistrer_message_supabase(msg_secret)
+
+                        cible_c = (
+                            partie.obtenir_joueur(rep_ia.action_technique.cible_id)
+                            if rep_ia.action_technique.cible_id
+                            else None
+                        )
+                        if (
+                            not cible_c
+                            or not cible_c.est_vivant
+                            or cible_c.role == RolePersonnage.CREATURE
+                        ):
+                            cible_c = choisir_cible_aleatoire_fallback(
+                                partie, agent_source, exclure_creatures=True
+                            )
+                        if cible_c:
+                            try:
+                                enregistrer_vote(
+                                    partie,
+                                    agent_source,
+                                    cible_c.id,
+                                    argumentation=rep_ia.declaration_publique,
+                                )
+                            except ErreurRegleJeu:
+                                pass
 
             moteur.clore_votes_creatures_vers_alchimiste()
 
@@ -746,47 +757,63 @@ async def simuler_tour_ia(partie_id: UUID) -> dict[str, Any]:
         evenements_tour.append("Débat terminé -> Passage à la phase vote_jour.")
 
     # 3. PHASE DE VOTE DU JOUR -> Votes des IA + Dépouillement du Conseil
+    # 3. PHASE DE VOTE DU JOUR -> Votes des IA en parallèle + Dépouillement du Conseil
     elif phase_depart == PhasePartie.VOTE_JOUR:
-        for agent in partie.joueurs_vivants():
-            if agent.est_humain:
-                continue
-            rep_vote, tokens = await interroger_agent_ia(
-                partie,
-                agent,
+        ia_votantes = [j for j in partie.joueurs_vivants() if not j.est_humain]
+        taches_vote = []
+        for agent in ia_votantes:
+            consigne_vote = (
                 "C'est l'heure du vote du Conseil ! Choisis de façon autonome un suspect parmi TOUS les joueurs vivants (cible_id). "
-                "Ne vote pas contre quelqu'un simplement parce qu'il a pris la parole dans le chat. Fonde ton choix sur une vraie stratégie et justifie ton vote dans declaration_publique.",
+                "Ne vote pas contre quelqu'un simplement parce qu'il a pris la parole dans le chat. Fonde ton choix sur une vraie stratégie et justifie ton vote dans declaration_publique."
             )
-            cible_v = (
-                partie.obtenir_joueur(rep_vote.action_technique.cible_id)
-                if rep_vote.action_technique.cible_id
-                else None
-            )
-            if not cible_v or not cible_v.est_vivant or cible_v.id == agent.id:
-                cible_v = choisir_cible_aleatoire_fallback(partie, agent)
+            taches_vote.append((agent, interroger_agent_ia(partie, agent, consigne_vote)))
 
-            if cible_v:
-                enregistrer_vote(
-                    partie,
-                    agent,
-                    cible_v.id,
-                    argumentation=rep_vote.declaration_publique,
-                )
-                msg_vote = MessagePartie(
-                    partie_id=partie.id,
-                    joueur_emetteur_id=agent.id,
-                    nom_emetteur=agent.nom_affiche,
-                    canal=CanalMessage.VILLAGE_PUBLIC,
-                    tour=partie.tour_actuel,
-                    phase=PhasePartie.VOTE_JOUR,
-                    contenu=f"[Vote contre {cible_v.nom_affiche}] {rep_vote.declaration_publique}",
-                    est_ia=True,
-                    tokens_utilises=tokens,
-                )
-                partie.messages.append(msg_vote)
-                depot_parties.enregistrer_message_supabase(msg_vote)
-                evenements_tour.append(
-                    f"{agent.nom_affiche} a voté contre {cible_v.nom_affiche}."
-                )
+        if taches_vote:
+            partie.ia_en_cours_ids = [agent.id for agent, _ in taches_vote]
+            try:
+                resultats_votes = await asyncio.gather(*(t[1] for t in taches_vote), return_exceptions=True)
+            finally:
+                partie.ia_en_cours_ids.clear()
+
+            for (agent, _), res in zip(taches_vote, resultats_votes):
+                if isinstance(res, Exception):
+                    cible_v = choisir_cible_aleatoire_fallback(partie, agent)
+                    rep_vote_text = "Je vote selon mon instinct."
+                    tokens = 0
+                else:
+                    rep_vote, tokens = res
+                    rep_vote_text = rep_vote.declaration_publique
+                    cible_v = (
+                        partie.obtenir_joueur(rep_vote.action_technique.cible_id)
+                        if rep_vote.action_technique.cible_id
+                        else None
+                    )
+                    if not cible_v or not cible_v.est_vivant or cible_v.id == agent.id:
+                        cible_v = choisir_cible_aleatoire_fallback(partie, agent)
+
+                if cible_v:
+                    enregistrer_vote(
+                        partie,
+                        agent,
+                        cible_v.id,
+                        argumentation=rep_vote_text,
+                    )
+                    msg_vote = MessagePartie(
+                        partie_id=partie.id,
+                        joueur_emetteur_id=agent.id,
+                        nom_emetteur=agent.nom_affiche,
+                        canal=CanalMessage.VILLAGE_PUBLIC,
+                        tour=partie.tour_actuel,
+                        phase=PhasePartie.VOTE_JOUR,
+                        contenu=f"[Vote contre {cible_v.nom_affiche}] {rep_vote_text}",
+                        est_ia=True,
+                        tokens_utilises=tokens,
+                    )
+                    partie.messages.append(msg_vote)
+                    depot_parties.enregistrer_message_supabase(msg_vote)
+                    evenements_tour.append(
+                        f"{agent.nom_affiche} a voté contre {cible_v.nom_affiche}."
+                    )
 
         elimine = moteur.resoudre_vote_du_jour()
         evenements_tour.append(
@@ -872,6 +899,19 @@ async def poster_message(
             detail="Anti-triche : seules les Créatures de la Nuit ont accès au canal secret.",
         )
 
+    # Assainissement anti-injection et validation de sécurité
+    contenu_securise = assainir_message_joueur(req.contenu)
+    if not contenu_securise:
+        raise HTTPException(status_code=400, detail="Le message ne peut pas être vide.")
+
+    # Interdiction d'usurpation des canaux et rôles système
+    contenu_lower = contenu_securise.lower()
+    if contenu_lower.startswith(("[systeme]", "[système]", "[meneur")):
+        raise HTTPException(
+            status_code=400,
+            detail="Anti-usurpation : les préfixes système sont réservés au Meneur de Jeu.",
+        )
+
     msg = MessagePartie(
         partie_id=partie.id,
         joueur_emetteur_id=emetteur.id,
@@ -879,7 +919,7 @@ async def poster_message(
         canal=req.canal,
         tour=partie.tour_actuel,
         phase=partie.phase_actuelle,
-        contenu=req.contenu,
+        contenu=contenu_securise,
         est_ia=not emetteur.est_humain,
         tokens_utilises=0,
     )
