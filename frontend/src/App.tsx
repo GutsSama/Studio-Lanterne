@@ -31,7 +31,13 @@ export default function App() {
   }
 
   if (!partie) {
-    return <EcranTitre occupe={jeu.operation !== null} erreur={jeu.erreur} onCommencer={(n, r) => void jeu.creerPartie(n, r)} />;
+    return (
+      <EcranTitre
+        occupe={jeu.operation !== null}
+        erreur={jeu.erreur}
+        onCommencer={(n, r, h) => void jeu.creerPartie(n, r, h)}
+      />
+    );
   }
 
   const messagesAffiches = partie.messages.slice(0, jeu.nbMessagesAffiches);

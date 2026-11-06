@@ -1,7 +1,9 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { ROLES_PERSONNAGE, type ArchetypeIA, type JoueurPublic, type RolePersonnage } from "../types/game";
 import { LIBELLES_ROLE } from "../game/libelles";
 import { SpritePersonnage, definirGenreJoueur, obtenirGenreJoueur, type GenreJoueur } from "./Sprites";
+import { ModalAuth } from "./ModalAuth";
+import { supabase } from "../api/supabase";
 
 const PRESENTATION: ReadonlyArray<{ archetype: ArchetypeIA; nom: string; trait: string }> = [
   { archetype: "mauvais_joueur", nom: "Gérard", trait: "Le Râleur" },
@@ -30,7 +32,7 @@ function joueurFictif(id: string, nom: string, archetype: ArchetypeIA | null, es
 interface Props {
   occupe: boolean;
   erreur: string | null;
-  onCommencer: (nom: string, roleForce: RolePersonnage | null) => void;
+  onCommencer: (nom: string, roleForce: RolePersonnage | null, hoteId?: string) => void;
 }
 
 export function EcranTitre({ occupe, erreur, onCommencer }: Props) {
@@ -38,7 +40,36 @@ export function EcranTitre({ occupe, erreur, onCommencer }: Props) {
   const [genre, setGenreState] = useState<GenreJoueur>(obtenirGenreJoueur);
   const [consentement, setConsentement] = useState(false);
   const [roleForce, setRoleForce] = useState<RolePersonnage | "">("");
+  const [utilisateur, setUtilisateur] = useState<{ id: string; email?: string; nom: string } | null>(null);
+  const [modalAuthOuvert, setModalAuthOuvert] = useState(false);
+
   const nomValide = nom.trim().length >= 2 && nom.trim().length <= 30;
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        const pseudo = (session.user.user_metadata?.username as string) || session.user.email?.split("@")[0] || "Citoyen";
+        setUtilisateur({ id: session.user.id, email: session.user.email, nom: pseudo });
+        setNom((n) => (n ? n : pseudo));
+        setConsentement(true);
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        const pseudo = (session.user.user_metadata?.username as string) || session.user.email?.split("@")[0] || "Citoyen";
+        setUtilisateur({ id: session.user.id, email: session.user.email, nom: pseudo });
+        setNom((n) => (n ? n : pseudo));
+        setConsentement(true);
+      } else {
+        setUtilisateur(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const choisirGenre = (nouveauGenre: GenreJoueur) => {
     definirGenreJoueur(nouveauGenre);
@@ -48,7 +79,7 @@ export function EcranTitre({ occupe, erreur, onCommencer }: Props) {
   const soumettre = (e: FormEvent) => {
     e.preventDefault();
     if (!nomValide || !consentement) return;
-    onCommencer(nom.trim(), roleForce === "" ? null : roleForce);
+    onCommencer(nom.trim(), roleForce === "" ? null : roleForce, utilisateur?.id);
   };
 
   return (
@@ -59,6 +90,30 @@ export function EcranTitre({ occupe, erreur, onCommencer }: Props) {
         className="absolute inset-0 h-full w-full object-cover pixelise select-none opacity-60"
       />
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-nuit-900/40 to-nuit-900" />
+
+      {/* Barre d'authentification supérieure */}
+      <div className="absolute top-4 right-4 z-20">
+        {utilisateur ? (
+          <div className="panneau flex items-center gap-3 bg-nuit-900/90 px-3 py-1.5 font-pixel text-[9px]">
+            <span className="text-lanterne">👤 {utilisateur.nom}</span>
+            <button
+              type="button"
+              onClick={() => supabase.auth.signOut()}
+              className="text-sang hover:underline ml-2"
+            >
+              Déconnexion
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setModalAuthOuvert(true)}
+            className="bouton bouton-nuit py-1.5! px-3! font-pixel text-[9px]! text-lanterne border border-lanterne/40 hover:border-lanterne"
+          >
+            🔑 Connexion / Inscription
+          </button>
+        )}
+      </div>
 
       <form onSubmit={soumettre} className="relative z-10 flex w-full max-w-3xl flex-col items-center gap-6">
         <div className="text-center">
@@ -157,6 +212,16 @@ export function EcranTitre({ occupe, erreur, onCommencer }: Props) {
           </button>
         </div>
       </form>
+
+      <ModalAuth
+        ouvert={modalAuthOuvert}
+        onFermer={() => setModalAuthOuvert(false)}
+        onConnecte={(u) => {
+          setUtilisateur(u);
+          setNom(u.nom);
+          setConsentement(true);
+        }}
+      />
     </div>
   );
 }

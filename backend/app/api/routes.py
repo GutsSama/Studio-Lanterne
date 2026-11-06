@@ -117,6 +117,7 @@ async def _interroger_et_publier_jour(
                 tokens_utilises=tokens,
             )
             partie.messages.append(msg)
+            depot_parties.enregistrer_message_supabase(msg)
     finally:
         if agent.id in partie.ia_en_cours_ids:
             partie.ia_en_cours_ids.remove(agent.id)
@@ -158,6 +159,7 @@ async def _interroger_et_publier_creature_nuit(
                 tokens_utilises=tokens_c,
             )
             partie.messages.append(msg_secret)
+            depot_parties.enregistrer_message_supabase(msg_secret)
 
         cible_c = (
             partie.obtenir_joueur(rep_creat.action_technique.cible_id)
@@ -460,7 +462,7 @@ async def creer_partie(req: CreerPartieRequete) -> dict[str, Any]:
         personnalites_ia=depot_parties.lister_personnalites(),
         role_humain_force=req.role_humain_force,
     )
-    depot_parties.sauvegarder(moteur.partie)
+    depot_parties.sauvegarder_nouvelle_partie(moteur.partie)
     return serialiser_partie_pour_humain(moteur.partie)
 
 
@@ -622,6 +624,7 @@ async def simuler_tour_ia(partie_id: UUID) -> dict[str, Any]:
                         tokens_utilises=tokens_c,
                     )
                     partie.messages.append(msg_secret)
+                    depot_parties.enregistrer_message_supabase(msg_secret)
 
                 cible_c = (
                     partie.obtenir_joueur(rep_creat.action_technique.cible_id)
@@ -734,6 +737,7 @@ async def simuler_tour_ia(partie_id: UUID) -> dict[str, Any]:
                     tokens_utilises=tokens,
                 )
                 partie.messages.append(msg)
+                depot_parties.enregistrer_message_supabase(msg)
                 evenements_tour.append(f"{agent.nom_affiche} a pris la parole ({tokens} tokens).")
 
         moteur.passer_au_vote_du_jour()
@@ -776,6 +780,7 @@ async def simuler_tour_ia(partie_id: UUID) -> dict[str, Any]:
                     tokens_utilises=tokens,
                 )
                 partie.messages.append(msg_vote)
+                depot_parties.enregistrer_message_supabase(msg_vote)
                 evenements_tour.append(
                     f"{agent.nom_affiche} a voté contre {cible_v.nom_affiche}."
                 )
@@ -810,6 +815,15 @@ async def simuler_tour_ia(partie_id: UUID) -> dict[str, Any]:
 
         origine_nuit = garde.cause_mort != "vote_conseil" if garde else True
         moteur.reprendre_apres_tir_garde_du_corps(origine_nuit=origine_nuit)
+
+    # Synchronisation Supabase de la partie et clôture des stats si terminée
+    if partie.phase_actuelle == PhasePartie.TERMINEE:
+        bilan = depot_parties.cloturer_partie_et_mettre_a_jour_stats(partie)
+        if bilan.get("nouveaux_succes"):
+            for s in bilan["nouveaux_succes"]:
+                evenements_tour.append(f"🏆 Nouveau succès débloqué : {s.get('titre', '')} !")
+    else:
+        depot_parties.synchroniser_etat_partie_supabase(partie)
 
     return {
         "phase_executee": phase_depart.value,
@@ -867,6 +881,8 @@ async def poster_message(
         tokens_utilises=0,
     )
     partie.messages.append(msg)
+    depot_parties.enregistrer_message_supabase(msg)
+    depot_parties.synchroniser_etat_partie_supabase(partie)
 
     # Déclenchement asynchrone de la réponse des IA ciblées (le jour) ou du coéquipier Loup (la nuit)
     if emetteur.est_humain and emetteur.est_vivant:
@@ -914,6 +930,8 @@ async def voter(partie_id: UUID, req: VoterRequete) -> dict[str, Any]:
 
     try:
         vote = enregistrer_vote(partie, votant, req.cible_id, req.argumentation)
+        depot_parties.enregistrer_vote_supabase(vote)
+        depot_parties.synchroniser_etat_partie_supabase(partie)
         return vote.model_dump(mode="json")
     except ErreurRegleJeu as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -956,6 +974,30 @@ async def executer_action(
             return {"statut": "tir_effectue", "cible_eliminee": cible.nom_affiche}
         else:
             raise ErreurRegleJeu("Type d'action inconnu.")
+        depot_parties.enregistrer_action_supabase(action)
+        depot_parties.synchroniser_etat_partie_supabase(partie)
         return action.model_dump(mode="json")
     except ErreurRegleJeu as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/profils/{joueur_id}", tags=["profils"])
+async def obtenir_profil_joueur(joueur_id: UUID) -> dict[str, Any]:
+    """Retourne le profil du joueur, ses statistiques de victoires et ses succès débloqués."""
+    profil = depot_parties.obtenir_profil_complet(joueur_id)
+    if profil is None:
+        raise HTTPException(status_code=404, detail="Profil joueur introuvable.")
+    return profil
+
+
+@router.get("/succes", tags=["profils"])
+async def lister_tous_les_succes() -> list[dict[str, Any]]:
+    """Retourne le catalogue complet des succès/trophées du jeu."""
+    if depot_parties.client is not None:
+        try:
+            res = depot_parties.client.table("succes").select("*").order("points").execute()
+            if res.data:
+                return res.data
+        except Exception:
+            pass
+    return []

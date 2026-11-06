@@ -103,6 +103,11 @@ class MoteurPartieFSM:
             tokens_utilises=0,
         )
         self.partie.messages.append(msg)
+        try:
+            from app.services.supabase_service import depot_parties
+            depot_parties.enregistrer_message_supabase(msg)
+        except Exception:
+            pass
         return msg
 
     def clore_votes_creatures_vers_alchimiste(
