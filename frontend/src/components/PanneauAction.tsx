@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { EtatPartiePublic, JoueurPublic, UUID } from "../types/game";
 import type { EtatJeu } from "../game/useJeu";
 import { prenom } from "../game/libelles";
+import { audio } from "../game/audio";
 
 export type TypeCiblage = "inspecter" | "devorer" | "voter" | "empoisonner" | "tirer";
 
@@ -118,7 +119,12 @@ export function PanneauAction({ jeu, partie, humain, ciblage, cible, reinitialis
             type="button"
             className="bouton bouton-nuit"
             disabled={!cible}
-            onClick={() => cible && void jeu.agir("inquisiteur_inspecter", cible.id).then(reinitialiserCible)}
+            onClick={() => {
+              if (cible) {
+                audio.pouvoir();
+                void jeu.agir("inquisiteur_inspecter", cible.id).then(reinitialiserCible);
+              }
+            }}
           >
             Inspecter {nomCible}
           </button>
@@ -145,7 +151,12 @@ export function PanneauAction({ jeu, partie, humain, ciblage, cible, reinitialis
             type="button"
             className="bouton bouton-sang"
             disabled={!cible}
-            onClick={() => cible && void jeu.voter(cible.id, false).then(reinitialiserCible)}
+            onClick={() => {
+              if (cible) {
+                audio.vote();
+                void jeu.voter(cible.id, false).then(reinitialiserCible);
+              }
+            }}
           >
             Dévorer {nomCible}
           </button>
@@ -163,7 +174,12 @@ export function PanneauAction({ jeu, partie, humain, ciblage, cible, reinitialis
             type="button"
             className="bouton bouton-sang"
             disabled={!cible || jeu.revelationEnCours}
-            onClick={() => cible && void jeu.voter(cible.id, true).then(reinitialiserCible)}
+            onClick={() => {
+              if (cible) {
+                audio.vote();
+                void jeu.voter(cible.id, true).then(reinitialiserCible);
+              }
+            }}
           >
             Voter contre {nomCible}
           </button>
@@ -178,12 +194,12 @@ export function PanneauAction({ jeu, partie, humain, ciblage, cible, reinitialis
             type="button"
             className="bouton bouton-sang"
             disabled={!cible}
-            onClick={() =>
-              cible &&
-              void jeu
-                .agir("garde_du_corps_tirer", cible.id)
-                .then(reinitialiserCible)
-            }
+            onClick={() => {
+              if (cible) {
+                audio.pouvoir();
+                void jeu.agir("garde_du_corps_tirer", cible.id).then(reinitialiserCible);
+              }
+            }}
           >
             Tirer sur {nomCible}
           </button>
@@ -209,7 +225,14 @@ export function PanneauAction({ jeu, partie, humain, ciblage, cible, reinitialis
             }
           />
           {peutSauver && (
-            <button type="button" className="bouton bouton-mousse" onClick={() => void jeu.agir("alchimiste_soigner", victime.id)}>
+            <button
+              type="button"
+              className="bouton bouton-mousse"
+              onClick={() => {
+                audio.pouvoir();
+                void jeu.agir("alchimiste_soigner", victime.id);
+              }}
+            >
               Sauver {prenom(victime.nom_affiche)}
             </button>
           )}
@@ -218,7 +241,12 @@ export function PanneauAction({ jeu, partie, humain, ciblage, cible, reinitialis
               type="button"
               className="bouton bouton-sang"
               disabled={!cible}
-              onClick={() => cible && void jeu.agir("alchimiste_empoisonner", cible.id).then(reinitialiserCible)}
+              onClick={() => {
+                if (cible) {
+                  audio.pouvoir();
+                  void jeu.agir("alchimiste_empoisonner", cible.id).then(reinitialiserCible);
+                }
+              }}
             >
               Empoisonner {nomCible}
             </button>

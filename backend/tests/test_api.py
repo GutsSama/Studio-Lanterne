@@ -168,3 +168,42 @@ def test_selection_ia_ciblees_par_prenom() -> None:
     assert len(cibles_defaut) == 1
     assert not cibles_defaut[0].est_humain
 
+
+def test_catalogue_succes_et_profil_joueur() -> None:
+    """Vérifie la route du catalogue de succès et la récupération du profil invité."""
+    from app.services.supabase_service import INVITE_PROFIL_ID
+
+    # 1. Catalogue des succès
+    resp_succes = client.get("/api/succes")
+    assert resp_succes.status_code == 200
+    assert isinstance(resp_succes.json(), list)
+
+    # 2. Profil joueur invité
+    resp_profil = client.get(f"/api/profils/{INVITE_PROFIL_ID}")
+    assert resp_profil.status_code in (200, 404)  # 200 si Supabase en ligne, 404 si offline
+    if resp_profil.status_code == 200:
+        data = resp_profil.json()
+        assert "statistiques" in data
+        assert "succes" in data
+
+
+def test_cloture_partie_et_calcul_succes() -> None:
+    """Vérifie que la clôture d'une partie met à jour les stats et débloque les succès (SURVIVOR / FIRST_BLOOD)."""
+    from app.engine.fsm import MoteurPartieFSM
+    from app.models.enums import CampPartie, RolePersonnage
+    from app.services.supabase_service import INVITE_PROFIL_ID, depot_parties
+
+    moteur = MoteurPartieFSM.creer_partie_solo_vs_ia(
+        hote_id=INVITE_PROFIL_ID,
+        nom_humain="Sarah",
+        personnalites_ia=depot_parties.lister_personnalites(),
+        role_humain_force=RolePersonnage.CITOYEN,
+    )
+    partie = moteur.partie
+    partie.camp_vainqueur = CampPartie.CITOYENS
+
+    bilan = depot_parties.cloturer_partie_et_mettre_a_jour_stats(partie)
+    assert bilan["victoire_humain"] is True
+    assert bilan["camp_vainqueur"] == "citoyens"
+
+

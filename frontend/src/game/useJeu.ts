@@ -29,7 +29,7 @@ export interface EtatJeu {
   erreur: string | null;
   evenements: string[];
   actionFaite: (type: string) => boolean;
-  creerPartie: (nom: string, roleForce: RolePersonnage | null) => Promise<void>;
+  creerPartie: (nom: string, roleForce: RolePersonnage | null, hoteId?: string) => Promise<void>;
   avancer: () => Promise<void>;
   envoyerMessage: (contenu: string, canal: CanalMessage) => Promise<void>;
   voter: (cibleId: UUID, puisAvancer: boolean) => Promise<void>;
@@ -159,9 +159,10 @@ export function useJeu(): EtatJeu {
   }, [partie?.id, partie?.phase_actuelle, operation]);
 
   const creerPartie = useCallback(
-    (nom: string, roleForce: RolePersonnage | null) =>
+    (nom: string, roleForce: RolePersonnage | null, hoteId?: string) =>
       executer("Le village se prépare", async () => {
         const p = await api.creerPartie({
+          hote_id: hoteId,
           nom_humain: nom,
           consentement_ai_act: true,
           role_humain_force: roleForce,
