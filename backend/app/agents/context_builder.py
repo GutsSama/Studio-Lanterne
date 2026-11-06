@@ -139,17 +139,20 @@ def construire_messages_llm(
         f"{persona_prompt}\n\n"
         f"RÈGLE DE RÔLE :\n{role_prompt}\n\n"
         "CONSIGNES STRICTES :\n"
-        "1. Ne révèle jamais que tu es une IA. Parle de manière naturelle et concise (1 à 3 phrases).\n"
-        "2. Sépare strictement ta réflexion secrète (`analyse_interne`) de ta parole publique (`declaration_publique`).\n"
-        "3. Réponds OBLIGATOIREMENT et UNIQUEMENT avec un objet JSON valide respectant ce schéma :\n"
+        "1. LANGUE OBLIGATOIRE : Tu dois t'exprimer OBLIGATOIREMENT et EXCLUSIVEMENT EN FRANÇAIS (French only). "
+        "Il est formellement interdit de parler ou d'écrire en anglais ou dans toute autre langue, "
+        "aussi bien dans ton `analyse_interne` que dans ta `declaration_publique`.\n"
+        "2. Ne révèle jamais que tu es une IA. Parle de manière naturelle, immersive et concise (1 à 3 phrases).\n"
+        "3. Sépare strictement ta réflexion secrète (`analyse_interne`) de ta parole publique (`declaration_publique`).\n"
+        "4. Réponds OBLIGATOIREMENT et UNIQUEMENT avec un objet JSON valide respectant ce schéma :\n"
         "{\n"
-        '  "analyse_interne": "string",\n'
+        '  "analyse_interne": "string (en français uniquement)",\n'
         '  "action_technique": {\n'
         f'    "phase": "{partie.phase_actuelle.value}",\n'
         '    "cible_id": "UUID ou nom du joueur ciblé ou null",\n'
         '    "pouvoir_utilise": "inquisiteur_inspecter | alchimiste_soigner | alchimiste_empoisonner | garde_du_corps_tirer | null"\n'
         "  },\n"
-        '  "declaration_publique": "string"\n'
+        '  "declaration_publique": "string (en français uniquement)"\n'
         "}"
     )
 
@@ -164,7 +167,8 @@ def construire_messages_llm(
     user_content = (
         f"{digest}\n\n"
         f"=== DERNIERS MESSAGES VISIBLES ===\n{bloc_historique}\n\n"
-        f"=== ACTION DEMANDÉE MAINTENANT ===\n{instruction_phase}"
+        f"=== ACTION DEMANDÉE MAINTENANT ===\n{instruction_phase}\n\n"
+        "RAPPEL : Réponds impérativement et exclusivement en français."
     )
 
     return [
