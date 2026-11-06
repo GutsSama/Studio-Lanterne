@@ -330,6 +330,11 @@ APP_ENV=development
 PORT=8000
 CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 
+# Supabase (Base de données & Auth)
+SUPABASE_URL=https://votre-projet.supabase.co
+SUPABASE_ANON_KEY=votre-cle-anon
+SUPABASE_SERVICE_ROLE_KEY=votre-cle-service-role
+
 # Clés d'API Fournisseurs LLM
 GROQ_API_KEY=gsk_...
 MISTRAL_API_KEY=...
@@ -342,7 +347,7 @@ SLIDING_WINDOW_MESSAGES=8
 DEBATE_ROUNDS_PER_DAY=2
 ```
 
-#### Installer les dépendances et démarrer le serveur :
+#### Installer les dépendances et démarrer le serveur FastAPI :
 ```bash
 # Avec uv (recommandé, ultra-rapide) :
 uv sync
@@ -350,24 +355,24 @@ uv run uvicorn app.main:app --reload --port 8000
 
 # Ou avec un environnement virtuel Python classique :
 python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
+source .venv/bin/activate  # Sur Windows : .venv\Scripts\activate
+pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
 * Le backend est accessible sur : **`http://127.0.0.1:8000`**
 * La documentation Swagger interactive sur : **`http://127.0.0.1:8000/docs`**
-* Le dashboard d'observabilité LLM sur : **`http://127.0.0.1:8000/dashboard-llm`**
+* Le dashboard d'observabilité LLM sur : **``**
 
 ---
 
-### 3. Configuration du Frontend
+### 3. Configuration & Démarrage du Frontend
 
 Dans un nouveau terminal :
 ```bash
 cd frontend
 
-# Installer les dépendances (dont Tailwind CSS v4 et Polices Pixel)
+# Installer les dépendances (dont polices Pixel Art et Tailwind CSS)
 npm install
 
 # Démarrer le serveur de développement Vite
@@ -375,6 +380,34 @@ npm run dev
 ```
 
 * L'application web est accessible sur : **`http://127.0.0.1:5173`**
+* Vite redirige automatiquement les appels `/api` vers le backend sur le port `8000`.
+
+---
+
+## 🎮 Règles du Jeu & Rôles (Créatures de la Nuit)
+
+Une partie oppose **6 joueurs** (**1 joueur humain** face à **5 agents IA**) répartis secrètement en deux camps rivaux :
+
+### Les 5 Rôles Jouables :
+| Rôle | Camp | Pouvoirs & Spécificités |
+| :--- | :--- | :--- |
+| **L'Inquisiteur** | Citoyens | S'éveille chaque nuit pour sonder l'alignement (`citoyens` ou `creatures`) d'un joueur vivant. |
+| **L'Alchimiste** | Citoyens | Dispose d'une potion de Vie (sauve la victime nocturne, auto-sauvetage interdit) et d'une potion de Mort (élimine un joueur). Usage unique par potion. |
+| **Le Garde du Corps** | Citoyens | S'il est éliminé (de nuit comme de jour), abat immédiatement un joueur vivant de son choix dans son dernier souffle (`tour_garde_du_corps`). |
+| **Le Citoyen** | Citoyens | Dépourvu de pouvoirs nocturnes. S'appuie sur la logique, la rhétorique et l'analyse des votes lors des débats publics. |
+| **La Créature (x2)** | Créatures | Connaît son allié nocturne. Délibère en secret sur le canal `creature_secret` la nuit pour désigner une victime, et dupe le village le jour. |
+
+### Cycle des Phases (FSM Moteur Backend) :
+1. **Nuit (`nuit`) :** Concertation secrète des Créatures + inspection de l'Inquisiteur.
+2. **Tour de l'Alchimiste (`tour_alchimiste`) :** Choix d'utiliser ou non les potions de Vie/Mort.
+3. **Annonce de l'Aube :** Résolution des morts nocturnes par le moteur backend et tir éventuel du Garde du Corps (`tour_garde_du_corps`).
+4. **Débat Public (`debat_jour`) :** Deux tours de table publics où chaque survivant exprime ses soupçons dans le canal `village_public`.
+5. **Vote du Conseil (`vote_jour`) :** Vote à la majorité relative pour éliminer un suspect. En cas d'égalité stricte, aucun joueur n'est éliminé.
+
+### Conditions de Fin de Partie :
+* **Victoire des Citoyens :** Toutes les Créatures de la Nuit ont été éliminées (`0` créature restante).
+* **Victoire des Créatures :** Parité numérique atteinte (`nb_creatures >= nb_citoyens`).
+* **Égalité :** Tous les joueurs meurent simultanément (`0` survivant).
 
 ---
 
@@ -385,7 +418,8 @@ Le projet applique une rigueur stricte validée par des tests unitaires et d'int
 ### Tests Backend (Pytest)
 ```bash
 cd backend
-uv run pytest
+source .venv/bin/activate  # ou : uv run pytest
+pytest tests/
 ```
 * **12 tests passés avec succès** couvrant :
   * La machine à états FSM ([`test_fsm.py`](backend/tests/test_fsm.py)).
