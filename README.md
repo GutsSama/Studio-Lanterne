@@ -362,7 +362,7 @@ uvicorn app.main:app --reload --port 8000
 
 * Le backend est accessible sur : **`http://127.0.0.1:8000`**
 * La documentation Swagger interactive sur : **`http://127.0.0.1:8000/docs`**
-* Le dashboard d'observabilité LLM sur : **`http://127.0.0.1:8000/dashboard-llm`**
+* Le dashboard d'observabilité LLM sur : **``**
 
 ---
 
