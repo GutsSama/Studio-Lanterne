@@ -10,8 +10,10 @@ import type {
 } from "../types/game";
 
 const CLE_STOCKAGE = "lanterne:partie_id";
-const DELAI_MESSAGE_IA_MS = 900;
-const DELAI_MESSAGE_SYSTEME_MS = 450;
+const DELAI_MESSAGE_IA_MS = 650;
+const DELAI_MESSAGE_SYSTEME_MS = 400;
+const DUREE_JOUR_S = 90;
+const DUREE_NUIT_S = 45;
 
 export interface EtatJeu {
   partie: EtatPartiePublic | null;
@@ -22,6 +24,8 @@ export interface EtatJeu {
   chargementInitial: boolean;
   /** Libellé de l'opération serveur en cours, ou `null`. */
   operation: string | null;
+  /** Compte à rebours de la phase actuelle en secondes (90s jour, 45s nuit, ou `null`). */
+  secondesRestantes: number | null;
   erreur: string | null;
   evenements: string[];
   actionFaite: (type: string) => boolean;
@@ -46,11 +50,13 @@ export function useJeu(): EtatJeu {
   const [nbMessagesAffiches, setNbMessagesAffiches] = useState(0);
   const [chargementInitial, setChargementInitial] = useState(true);
   const [operation, setOperation] = useState<string | null>(null);
+  const [secondesRestantes, setSecondesRestantes] = useState<number | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [evenements, setEvenements] = useState<string[]>([]);
   const [actionsFaites, setActionsFaites] = useState<ReadonlySet<string>>(new Set());
   const partieRef = useRef<EtatPartiePublic | null>(null);
   partieRef.current = partie;
+  const phaseInitRef = useRef<string | null>(null);
 
   const humain = useMemo(() => partie?.joueurs.find((j) => j.est_humain) ?? null, [partie]);
 
@@ -88,6 +94,11 @@ export function useJeu(): EtatJeu {
   useEffect(() => {
     if (!partie || nbMessagesAffiches >= total) return;
     const prochain = partie.messages[nbMessagesAffiches];
+    if (!prochain?.est_ia && prochain?.canal !== "systeme") {
+      // Les messages du joueur humain s'affichent instantanément
+      setNbMessagesAffiches((n) => n + 1);
+      return;
+    }
     const delai = prochain?.canal === "systeme" ? DELAI_MESSAGE_SYSTEME_MS : DELAI_MESSAGE_IA_MS;
     const t = window.setTimeout(() => setNbMessagesAffiches((n) => n + 1), delai);
     return () => window.clearTimeout(t);
@@ -113,6 +124,40 @@ export function useJeu(): EtatJeu {
     if (afficherTout) setNbMessagesAffiches(maj.messages.length);
   }, []);
 
+  // ─── Initialisation du timer (90s jour / 45s nuit) et lancement asynchrone des IA ───
+  const clePhase = partie ? `${partie.id}:${partie.tour_actuel}:${partie.phase_actuelle}` : null;
+  useEffect(() => {
+    if (!partie || !clePhase) {
+      setSecondesRestantes(null);
+      return;
+    }
+    if (phaseInitRef.current === clePhase) return;
+    phaseInitRef.current = clePhase;
+
+    if (partie.phase_actuelle === "debat_jour") {
+      setSecondesRestantes(DUREE_JOUR_S);
+      void api.initierPhase(partie.id).then(setPartie).catch(() => {});
+    } else if (partie.phase_actuelle === "nuit") {
+      setSecondesRestantes(DUREE_NUIT_S);
+      void api.initierPhase(partie.id).then(setPartie).catch(() => {});
+    } else {
+      setSecondesRestantes(null);
+    }
+  }, [partie, clePhase]);
+
+  // ─── Synchronisation temps réel pendant le débat diurne et la nuit ───
+  useEffect(() => {
+    if (!partie || (partie.phase_actuelle !== "debat_jour" && partie.phase_actuelle !== "nuit")) return;
+    const t = window.setInterval(() => {
+      if (operation !== null) return;
+      void api
+        .obtenirPartie(partie.id)
+        .then((maj) => setPartie(maj))
+        .catch(() => {});
+    }, 1200);
+    return () => window.clearInterval(t);
+  }, [partie?.id, partie?.phase_actuelle, operation]);
+
   const creerPartie = useCallback(
     (nom: string, roleForce: RolePersonnage | null) =>
       executer("Le village se prépare", async () => {
@@ -122,6 +167,7 @@ export function useJeu(): EtatJeu {
           role_humain_force: roleForce,
         });
         localStorage.setItem(CLE_STOCKAGE, p.id);
+        phaseInitRef.current = null;
         setActionsFaites(new Set());
         setEvenements([]);
         setNbMessagesAffiches(0);
@@ -136,7 +182,7 @@ export function useJeu(): EtatJeu {
     const libelles: Partial<Record<string, string>> = {
       nuit: "Les créatures rôdent dans l'ombre",
       tour_alchimiste: "L'aube se lève",
-      debat_jour: "Les villageois débattent",
+      debat_jour: "Passage au vote du Conseil",
       vote_jour: "Le Conseil dépouille les votes",
       tour_garde_du_corps: "Un coup de feu retentit",
     };
@@ -147,15 +193,31 @@ export function useJeu(): EtatJeu {
     });
   }, [executer]);
 
+  // ─── Décompte du timer seconde par seconde et avancement automatique à 00:00 ───
+  useEffect(() => {
+    if (secondesRestantes === null || operation !== null) return;
+    if (secondesRestantes <= 0) {
+      setSecondesRestantes(null);
+      void avancer();
+      return;
+    }
+    const t = window.setTimeout(() => setSecondesRestantes((s) => (s !== null ? s - 1 : null)), 1000);
+    return () => window.clearTimeout(t);
+  }, [secondesRestantes, operation, avancer]);
+
   const envoyerMessage = useCallback(
-    (contenu: string, canal: CanalMessage) =>
-      executer("Envoi", async () => {
-        const p = partieRef.current;
-        if (!p || !humain) return;
+    async (contenu: string, canal: CanalMessage) => {
+      const p = partieRef.current;
+      if (!p || !humain) return;
+      try {
         await api.envoyerMessage(p.id, { joueur_id: humain.id, contenu, canal });
-        await rafraichir(true);
-      }),
-    [executer, humain, rafraichir],
+        const maj = await api.obtenirPartie(p.id);
+        setPartie(maj);
+      } catch (e) {
+        setErreur(messageErreur(e));
+      }
+    },
+    [humain],
   );
 
   const voter = useCallback(
@@ -165,12 +227,15 @@ export function useJeu(): EtatJeu {
       let ok = false;
       await executer("Vote", async () => {
         await api.voter(p.id, { votant_id: humain.id, cible_id: cibleId });
-        marquerAction("vote");
+        if (p.phase_actuelle !== "nuit") {
+          marquerAction("vote");
+        }
+        await rafraichir(false);
         ok = true;
       });
       if (ok && puisAvancer) await avancer();
     },
-    [avancer, executer, humain, marquerAction],
+    [avancer, executer, humain, marquerAction, rafraichir],
   );
 
   const agir = useCallback(
@@ -187,7 +252,9 @@ export function useJeu(): EtatJeu {
 
   const quitter = useCallback(() => {
     localStorage.removeItem(CLE_STOCKAGE);
+    phaseInitRef.current = null;
     setPartie(null);
+    setSecondesRestantes(null);
     setNbMessagesAffiches(0);
     setEvenements([]);
     setErreur(null);
@@ -200,6 +267,7 @@ export function useJeu(): EtatJeu {
     revelationEnCours: nbMessagesAffiches < total,
     chargementInitial,
     operation,
+    secondesRestantes,
     erreur,
     evenements,
     actionFaite,
